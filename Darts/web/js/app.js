@@ -1,7 +1,7 @@
 // Darts Arena – Oberfläche (Single-Page-App ohne Framework).
 import { boardSvg, markDart, clearMarks, pointIn, throwAt, CPU_LEVELS, label, value, dart, MISS } from './board.js';
 import { GAMES, gameById, IMPOSSIBLE } from './games.js';
-import { allCallers, say, stopCalls, demo, setCallerSettings, callerById, packKeys, packSave, packClearCalls, keyFromFilename, musicFileSave, musicFileDelete } from './caller.js';
+import { allCallers, deviceVoices, say, stopCalls, demo, setCallerSettings, callerById, packKeys, packSave, packClearCalls, keyFromFilename, musicFileSave, musicFileDelete } from './caller.js';
 import { setMusicSettings, musicWanted } from './music.js';
 import { sfx, setSfx, buzz, setVibrate, unlockAudio } from './audio.js';
 import { store } from './store.js';
@@ -20,7 +20,7 @@ let S = store.settings();
 const ui = { view: 'home', game: null, gameId: null, setup: null, input: null, mult: 1, keypad: '', cpuTimer: null, busy: false, lastResult: null, statsPid: null, installEvt: null, startedAt: 0, daily: false };
 
 function applySettings() {
-  setCallerSettings({ caller: S.caller, volume: S.callerVolume, callNames: S.callNames, callRest: S.callRest });
+  setCallerSettings({ caller: S.caller, volume: S.callerVolume, callNames: S.callNames, callRest: S.callRest, voiceEn: S.voiceEn || '', voiceDe: S.voiceDe || '' });
   setSfx(S.sfx, S.sfxVolume);
   setVibrate(S.vibrate);
   setMusicSettings({ on: S.music, volume: S.musicVolume, source: S.musicSource });
@@ -288,7 +288,7 @@ function defaultSetup(id, cpu = null) {
   return { id, cfg, players };
 }
 const pl = (p) => ({ id: p.id, name: p.name, color: p.color, emoji: p.emoji, cpu: 0 });
-const cpuPlayer = (lvl) => ({ id: 'cpu' + lvl + '-' + Math.random().toString(36).slice(2, 5), name: `CPU ${CPU_LEVELS[lvl].name}`, cpu: lvl, color: '#78909c', emoji: '🤖' });
+const cpuPlayer = (lvl) => ({ id: 'cpu' + lvl + '-' + Math.random().toString(36).slice(2, 5), name: CPU_LEVELS[lvl].name, cpu: lvl, color: '#78909c', emoji: '🤖' });
 
 function viewSetup() {
   const su = ui.setup;
@@ -296,10 +296,10 @@ function viewSetup() {
   const opts = G.meta.options.map((o) => `
     <div class="opt"><label>${esc(o.label)}</label><div class="seg">${o.values.map((v, i) => `<button class="${su.cfg[o.key] === v ? 'on' : ''}" data-act="opt" data-k="${o.key}" data-i="${i}">${esc(o.names ? o.names[i] : v)}</button>`).join('')}</div></div>`).join('');
   const plist = su.players.map((p, i) => `
-    <div class="prow">${avatar(p)}<div class="grow"><b>${esc(p.name)}</b>${p.cpu ? `<small>Ø ca. ${CPU_LEVELS[p.cpu].avg} · Stufe ${p.cpu}</small>` : '<small>Mensch</small>'}</div>
-      ${p.cpu ? `<button class="icon" data-act="cpuLvl" data-i="${i}" data-d="-1">−</button><button class="icon" data-act="cpuLvl" data-i="${i}" data-d="1">+</button>` : ''}
+    <div class="prow ${p.cpu ? 'cpu' : ''}">${avatar(p)}<div class="grow"><b>${p.cpu ? '🤖 ' + esc(CPU_LEVELS[p.cpu].name) : esc(p.name)}</b>${p.cpu ? `<small>CPU · Stufe ${p.cpu} · Ø ca. ${CPU_LEVELS[p.cpu].avg}</small>` : '<small>Mensch</small>'}</div>
       <button class="icon" data-act="pUp" data-i="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
-      <button class="icon" data-act="pDel" data-i="${i}" ${su.players.length <= 1 ? 'disabled' : ''}>✕</button></div>`).join('');
+      <button class="icon" data-act="pDel" data-i="${i}" ${su.players.length <= 1 ? 'disabled' : ''}>✕</button>
+      ${p.cpu ? `<div class="cpulvl"><button class="icon" data-act="cpuLvl" data-i="${i}" data-d="-1">−</button><input type="range" min="1" max="10" step="1" value="${p.cpu}" data-cpulvl="${i}"><button class="icon" data-act="cpuLvl" data-i="${i}" data-d="1">+</button></div>` : ''}</div>`).join('');
   return `
   <div class="setup-head"><button class="back" data-go="games">‹</button><span class="gi">${G.meta.icon}</span><div><h2>${esc(G.meta.name)}</h2><small>${esc(G.meta.desc)}</small></div><button class="icon" data-act="rules" data-g="${G.meta.id}">?</button></div>
   ${ui.daily ? '<div class="pill gold block">☀️ Tages-Challenge</div>' : ''}
@@ -389,7 +389,7 @@ function viewPlay() {
 }
 
 function inputArea(canKeypad) {
-  const modes = [canKeypad && ['keypad', '⌨️ Summe'], ['segments', '🔢 Felder'], ['board', '🎯 Scheibe'], S.autoscore && ['camera', '📷 Kamera']].filter(Boolean);
+  const modes = [['segments', '🔢 Felder'], canKeypad && ['keypad', '⌨️ Summe'], ['board', '🎯 Scheibe'], S.autoscore && ['camera', '📷 Kamera']].filter(Boolean);
   let mode = ui.input;
   if (mode === 'camera' && !S.autoscore) mode = 'segments';
   if (mode === 'keypad' && !canKeypad) mode = 'segments';
@@ -726,6 +726,10 @@ function tabCaller() {
   <section class="card voicecta"><h3>🎤 Eigene Stimme einsprechen</h3>
     <p class="muted small">Die App sagt dir jede Ansage vor, nimmt automatisch auf, schneidet zu und geht zur nächsten. Zahlen setzt sie aus Bausteinen zusammen – rund 40 kurze Aufnahmen (ca. 5 Minuten) reichen für alle Werte von 1 bis 180.</p>
     <button class="btn primary wide" data-act="voiceNew">＋ Neue Stimme aufnehmen</button></section>
+  <section class="card"><h3>🗣️ Stimme des Geräts</h3>
+    <p class="muted small">Welche Männerstimme deines Handys The Showman, Der Kommentator usw. benutzen. „Automatisch“ sucht eine Männerstimme. Mit ▶ probehören.</p>
+    ${voicePicker('en', 'voiceEn', '🇬🇧 Englische Caller')}
+    ${voicePicker('de', 'voiceDe', '🇩🇪 Deutsche Caller')}</section>
   <section class="card"><div class="opt"><label>Lautstärke Caller</label><input type="range" min="0.1" max="1" step="0.05" value="${S.callerVolume}" data-range="callerVolume"></div>
     ${tog('callRest', '„You require …“ ansagen', 'Rest im Checkout-Bereich ansagen')}
     ${tog('callNames', 'Namen ansagen')}</section>
@@ -733,6 +737,16 @@ function tabCaller() {
     <p class="muted small">Lizenzierte Caller-Dateien laden. Dateinamen: <code>180.mp3</code>, <code>60.wav</code>, <code>noscore</code>, <code>gameshot</code>, <code>leg</code>, <code>match</code>, <code>require</code>, <code>gameon</code> … Danach Caller „Eigenes Sound-Paket“ wählen.</p>
     <div id="packInfo" class="packinfo">…</div>
     <div class="row gap"><button class="btn grow" data-act="packImport">📂 Dateien laden</button><button class="btn ghost danger" data-act="packClear">Löschen</button></div></section>`;
+}
+
+function voicePicker(lang2, key, label) {
+  const list = deviceVoices(lang2).filter((v) => !v.female);
+  list.sort((a, b) => (b.male - a.male) || a.name.localeCompare(b.name));
+  return `<div class="opt"><label>${label}</label><div class="row gap"><select class="grow sel" data-select="${key}">
+    <option value="">Automatisch (Männerstimme)</option>
+    ${list.map((v) => `<option value="${esc(v.name)}" ${S[key] === v.name ? 'selected' : ''}>${v.male ? '♂ ' : ''}${esc(v.name)} (${esc(v.locale)})</option>`).join('')}
+  </select><button class="btn small" data-act="demo" data-id="${lang2 === 'en' ? 'showman' : 'kommentator'}">▶</button></div>
+  ${list.length ? '' : '<small class="muted">Keine Stimmen gefunden – ggf. in den Android-Einstellungen unter „Sprachausgabe“ Sprachdaten laden.</small>'}</div>`;
 }
 
 function tabSound() {
@@ -750,7 +764,7 @@ function tabSound() {
 
 function tabSpiel() {
   return `<section class="card"><h3>🎯 Eingabe</h3>
-    <div class="opt"><label>Standard-Eingabe</label><div class="seg">${[['keypad', 'Summe'], ['segments', 'Felder'], ['board', 'Scheibe']].concat(S.autoscore ? [['camera', 'Kamera']] : []).map(([v, l]) => `<button class="${S.input === v ? 'on' : ''}" data-act="setv" data-k="input" data-v="${v}">${l}</button>`).join('')}</div></div>
+    <div class="opt"><label>Standard-Eingabe</label><div class="seg">${[['segments', 'Felder'], ['keypad', 'Summe'], ['board', 'Scheibe']].concat(S.autoscore ? [['camera', 'Kamera']] : []).map(([v, l]) => `<button class="${S.input === v ? 'on' : ''}" data-act="setv" data-k="input" data-v="${v}">${l}</button>`).join('')}</div></div>
     ${tog('showHints', 'Checkout-Wege & Ziele anzeigen')}
     ${tog('keepAwake', 'Bildschirm anlassen', 'Während der App-Nutzung nicht ausschalten')}</section>
   <section class="card"><h3>🤖 CPU</h3>
@@ -1133,6 +1147,11 @@ document.addEventListener('change', (e) => {
     if (t.dataset.set === 'autoUpdate') setAuto(t.checked);
     if (t.dataset.set === 'music') musicWanted(ui.view !== 'play');
   }
+  if (t.dataset.cpulvl != null && ui.setup) {
+    const p = ui.setup.players[+t.dataset.cpulvl];
+    if (p) { Object.assign(p, cpuPlayer(+t.value), { id: p.id }); render(); }
+  }
+  if (t.dataset.select) { S[t.dataset.select] = t.value; saveSettings(); demo(t.dataset.select === 'voiceEn' ? 'showman' : 'kommentator'); }
   if (t.dataset.range) { S[t.dataset.range] = +t.value; saveSettings(); if (t.dataset.range === 'sfxVolume') sfx.hit(1); }
 });
 

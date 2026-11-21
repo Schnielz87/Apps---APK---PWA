@@ -3,6 +3,7 @@ package de.dartsarena.app
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import android.webkit.JavascriptInterface
 import org.json.JSONObject
 import java.util.Locale
@@ -56,6 +57,69 @@ class NativeBridge(private val act: MainActivity) {
         }
         if (ttsReady) run() else synchronized(waiting) { waiting.add(run) }
     }
+
+    /** Wie speak, aber mit Wunsch-Geschlecht ("m"/"f") und optional fester Stimme (Name aus voices()). */
+    @JavascriptInterface
+    fun speak2(text: String, lang: String, pitch: Double, rate: Double, volume: Double, id: String, gender: String, voiceName: String) {
+        val run: () -> Unit = {
+            val t = tts
+            if (t != null) {
+                val v = chooseVoice(t, lang, gender, voiceName)
+                if (v != null) t.voice = v else {
+                    val loc = Locale.forLanguageTag(lang)
+                    if (t.isLanguageAvailable(loc) >= TextToSpeech.LANG_AVAILABLE) t.language = loc
+                }
+                t.setPitch(pitch.toFloat().coerceIn(0.1f, 2f))
+                t.setSpeechRate(rate.toFloat().coerceIn(0.3f, 2.5f))
+                val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume.toFloat().coerceIn(0f, 1f)) }
+                t.speak(text, TextToSpeech.QUEUE_ADD, params, id)
+            } else {
+                done(id)
+            }
+            Unit
+        }
+        if (ttsReady) run() else synchronized(waiting) { waiting.add(run) }
+    }
+
+    /** Gibt es auf dem Gerät eine Stimme dieser Sprache(nfamilie) mit dem Geschlecht? */
+    @JavascriptInterface
+    fun hasGenderVoice(lang: String, gender: String): Boolean = tts?.let { chooseVoice(it, lang, gender, "", strict = true) != null } ?: false
+
+    /** Installierte Stimmen einer Sprache (z. B. "en") als JSON – für die Auswahl in den Einstellungen. */
+    @JavascriptInterface
+    fun voices(lang2: String): String {
+        val arr = org.json.JSONArray()
+        runCatching {
+            tts?.voices?.filter { it.locale.language == lang2 && usable(it) }?.sortedBy { it.name }?.forEach {
+                arr.put(JSONObject().put("name", it.name).put("locale", it.locale.toLanguageTag()).put("male", isMale(it)).put("female", isFemale(it)))
+            }
+        }
+        return arr.toString()
+    }
+
+    private fun usable(v: Voice) = !v.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
+    // Google-TTS-Kürzel (z. B. en-gb-x-gbd-local = männlich) und Samsung (SMTm = male)
+    private val maleCodes = Regex("(?i)(\\bmale|-gbb|-gbd|-rjs|-iol|-iom|-tpd|-deg|-ded|-aub|-aud|-ene|smtm)")
+    private val femaleCodes = Regex("(?i)(female|-gba|-gbc|-gbg|-iob|-iog|-sfg|-tpc|-tpf|-dea|-deb|-auc|smtf)")
+    private fun isMale(v: Voice) = maleCodes.containsMatchIn(v.name) && !v.name.contains("female", true)
+    private fun isFemale(v: Voice) = femaleCodes.containsMatchIn(v.name)
+
+    private fun chooseVoice(t: TextToSpeech, lang: String, gender: String, voiceName: String, strict: Boolean = false): Voice? = runCatching {
+        val all = t.voices?.filter { usable(it) } ?: return@runCatching null
+        if (voiceName.isNotBlank()) all.firstOrNull { it.name == voiceName }?.let { return@runCatching it }
+        val loc = Locale.forLanguageTag(lang)
+        val exact = all.filter { it.locale.language == loc.language && it.locale.country.equals(loc.country, true) }
+        val family = all.filter { it.locale.language == loc.language }
+        val test: ((Voice) -> Boolean)? = when (gender) { "m" -> ::isMale; "f" -> ::isFemale; else -> null }
+        // Offline-Stimmen bevorzugen (kein Internet nötig), dann beste Qualität
+        val best = { l: List<Voice> -> l.sortedWith(compareBy<Voice> { it.isNetworkConnectionRequired }.thenByDescending { it.quality }).firstOrNull() }
+        if (test != null) {
+            best(exact.filter(test))?.let { return@runCatching it }
+            best(family.filter(test))?.let { return@runCatching it }
+            if (strict) return@runCatching null
+        }
+        null
+    }.getOrNull()
 
     @JavascriptInterface
     fun stopSpeak() { runCatching { tts?.stop() } }

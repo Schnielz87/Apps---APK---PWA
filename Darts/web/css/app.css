@@ -343,3 +343,11 @@ body[data-view="play"] #nav, body[data-view="play"] #top { display: none; }
 .trow { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); }
 .trow.on { border-color: #f5c54255; }
 .star { font-size: 1.4rem; width: 34px; color: var(--mu); } .star.on { color: var(--gold); }
+
+select.sel { font: inherit; color: var(--tx); background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+
+/* Spieler-Zeilen: Namen nie abschneiden, CPU-Stufe als Regler in eigener Zeile */
+.prow { flex-wrap: wrap; }
+.prow .grow b { display: block; overflow-wrap: anywhere; line-height: 1.25; }
+.prow.cpu .cpulvl { flex-basis: 100%; display: flex; align-items: center; gap: 10px; padding-left: 46px; }
+.prow.cpu .cpulvl input[type="range"] { flex: 1; padding: 0; border: 0; background: none; accent-color: var(--red); }
