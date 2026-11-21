@@ -53,7 +53,9 @@ function shell() {
       <div id="fx"></div>
     </div>`;
   document.addEventListener('click', onClick);
-  document.addEventListener('pointerdown', () => { unlockAudio(); ui.unlocked = true; musicWanted(ui.view !== 'play'); }, { once: true });
+  // Ton freischalten (Browser ohne Berührung): beim ersten Antippen, Wischen oder Tastendruck
+  const unlock = () => { unlockAudio(); ui.unlocked = true; musicWanted(ui.view !== 'play'); };
+  for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, unlock, { once: true, capture: true });
   document.addEventListener('pointerdown', ripple);
 }
 
@@ -63,7 +65,7 @@ function go(view, opts = {}) {
   ui.enter = ui.view !== view;
   ui.view = view;
   Object.assign(ui, opts);
-  if (ui.unlocked) musicWanted(view !== 'play');
+  musicWanted(view !== 'play');
   document.body.dataset.view = view;
   $$('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.go === view || (view === 'setup' && b.dataset.go === 'games')));
   render();

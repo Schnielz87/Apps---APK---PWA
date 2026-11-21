@@ -73,7 +73,8 @@ let tapHooked = false;
 function retryOnTap() {
   if (tapHooked) return;
   tapHooked = true;
-  document.addEventListener('pointerdown', () => { tapHooked = false; sync(); }, { once: true });
+  const go = () => { tapHooked = false; sync(); };
+  for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, go, { once: true, capture: true });
 }
 
 // ------------------------------------------------------------------ eingebauter Loop (eigene Komposition, 122 BPM, a-Moll)
@@ -132,6 +133,8 @@ function schedule() {
 }
 function playBuiltin() {
   if (!ac()) return false;
+  // Startet der Ton ohne Berührung nicht (Browser-Regel), beim ersten Antippen erneut versuchen
+  setTimeout(() => { if (ctx && ctx.state !== 'running' && active === 'builtin') { logWarn('Musik', 'Ton vom Browser bis zur ersten Berührung gesperrt'); active = null; retryOnTap(); } }, 600);
   if (!timer) { nextT = ctx.currentTime + 0.1; timer = setInterval(schedule, 60); schedule(); }
   master.gain.cancelScheduledValues(ctx.currentTime);
   master.gain.setTargetAtTime(cfg.volume * 0.5, ctx.currentTime, 0.5);
