@@ -207,7 +207,7 @@ function viewHome() {
     <div class="xpbar"><i style="width:${Math.round(L.pct * 100)}%"></i></div>
     <div class="xptext">${L.into} / ${L.need} XP bis Level ${L.level + 1}</div>
   </section>
-  ${running ? `<button class="card resume" data-act="resume"><span class="big">▶</span><div><b>Spiel fortsetzen</b><small>${esc(gameById(running.gameId)?.meta.name || '')} · ${esc(running.players.map((p) => p.name).join(' vs. '))}</small></div></button>` : ''}
+  ${running ? `<div class="card resume" data-act="resume" role="button"><span class="big">▶</span><div class="grow"><b>Spiel fortsetzen</b><small>${esc(gameById(running.gameId)?.meta.name || '')} · ${esc(running.players.map((p) => p.name).join(' vs. '))}</small></div><button class="resume-x" data-act="discardRun" title="Spiel beenden" aria-label="Spiel beenden">✕</button></div>` : ''}
   <section class="card daily ${done ? 'done' : ''}">
     <div class="row between"><h3>☀️ Tages-Challenge</h3><span class="pill">${done ? '✓ geschafft' : '+' + ch.xp + ' XP'}</span></div>
     <p>${esc(ch.text)}</p>
@@ -251,7 +251,7 @@ function tileSub(t, lastCpu) {
     const c = cfg || { start: 501, in: 'straight', out: 'double', legs: 1 };
     txt = `${c.start} · ${{ double: 'Double-Out', single: 'Single-Out', master: 'Master-Out' }[c.out]}${c.in !== 'straight' ? ' · ' + (c.in === 'double' ? 'Double-In' : 'Master-In') : ''}${c.legs > 1 ? ' · FT' + c.legs : ''}`;
   } else txt = gameById(t.g).meta.cat === 'training' ? 'Training' : 'Match';
-  return t.cpu ? `${txt} · CPU ${lastCpu}` : `${txt} · Solo & Freunde`;
+  return t.cpu ? `${txt} · CPU ${lastCpu}` : t.g === 'x01' ? `${txt} · Solo & Freunde` : txt;
 }
 function tileHtml(t, lastCpu) {
   const cls = t.cpu ? 'red' : t.g === 'x01' ? 'green' : '';
@@ -946,6 +946,16 @@ function onClick(e) {
       gameOnIntro(() => startGame(ui.setup));
       break;
     }
+    case 'discardRun': {
+      // sofort beenden – mit „Rückgängig“ für versehentliche Tipps
+      ui.lastRun = store.running();
+      store.clearRunning();
+      const card = $('.resume');
+      if (card) { card.classList.add('gone'); setTimeout(render, 280); } else render();
+      toast('Spiel beendet · <u data-act="restoreRun">Rückgängig</u>');
+      break;
+    }
+    case 'restoreRun': if (ui.lastRun) { store.saveRunning(ui.lastRun); ui.lastRun = null; render(); toast('Spiel wiederhergestellt'); } break;
     case 'resume': {
       const r = store.running();
       if (!r) break;

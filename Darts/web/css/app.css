@@ -370,3 +370,10 @@ select.sel { font: inherit; color: var(--tx); background: var(--bg2); border: 1p
 .rules-head { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; } .rules-head h3 { margin: 0; } .rules-head small { color: var(--mu); }
 
 .flash { max-width: 96vw; text-align: center; }
+
+/* ✕ in „Spiel fortsetzen“ */
+.resume { cursor: pointer; }
+.resume-x { flex: none; width: 42px; height: 42px; border-radius: 50%; font-size: 1.15rem; font-weight: 800; color: var(--mu); background: #0004; border: 1px solid var(--line); transition: transform .15s, color .15s, background .15s; }
+.resume-x:active { transform: scale(.88); color: #fff; background: #e5393555; }
+.resume.gone { animation: gone .28s ease-in forwards; }
+@keyframes gone { to { opacity: 0; transform: translateX(60px) scale(.96); height: 0; margin: 0; padding: 0; } }
