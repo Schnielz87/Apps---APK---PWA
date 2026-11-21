@@ -368,3 +368,5 @@ select.sel { font: inherit; color: var(--tx); background: var(--bg2); border: 1p
 .info-btn.in-card { position: absolute; right: 52px; top: 50%; transform: translateY(-50%); }
 .info-btn.in-card:active { transform: translateY(-50%) scale(.88); }
 .rules-head { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; } .rules-head h3 { margin: 0; } .rules-head small { color: var(--mu); }
+
+.flash { max-width: 96vw; text-align: center; }

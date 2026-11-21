@@ -133,6 +133,9 @@ function bigFlash(text, cls = '') {
   const f = document.createElement('div');
   f.className = 'flash ' + cls;
   f.textContent = text;
+  // Schriftgröße an die Textlänge anpassen, damit alles aufs Display passt (kurze Texte wie „180!“ bleiben riesig)
+  const len = [...text].length;
+  f.style.fontSize = `min(${Math.min(18, 135 / Math.max(1, len)).toFixed(1)}vw, ${len <= 6 ? 7 : 4.6}rem)`;
   $('#fx').appendChild(f);
   setTimeout(() => f.remove(), 1700);
 }
