@@ -2,7 +2,8 @@
 import { boardSvg, markDart, clearMarks, pointIn, throwAt, CPU_LEVELS, label, value, dart, MISS } from './board.js';
 import { GAMES, gameById, IMPOSSIBLE } from './games.js';
 import { allCallers, deviceVoices, say, stopCalls, demo, setCallerSettings, callerById, packKeys, packSave, packClearCalls, keyFromFilename, musicFileSave, musicFileDelete } from './caller.js';
-import { setMusicSettings, musicWanted } from './music.js';
+import { setMusicSettings, musicWanted, musicReload } from './music.js';
+import { log, logError, logText, clearLog, entries } from './log.js';
 import { sfx, setSfx, buzz, setVibrate, unlockAudio } from './audio.js';
 import { store } from './store.js';
 import { levelFor, rankFor, ACHIEVEMENTS, statsFor, dailyChallenge, recordGame, streakAlive } from './progress.js';
@@ -68,6 +69,7 @@ function go(view, opts = {}) {
   render();
   window.scrollTo(0, 0);
   if (view !== 'play') history.replaceState(null, '', '#' + view);
+  else if (!(history.state && history.state.darts)) history.pushState({ darts: 1 }, '');
 }
 
 function render() {
@@ -461,10 +463,10 @@ function calibrateCam() {
   const c = camera();
   modal(`<h3>🎯 Kamera ausrichten</h3>
     <p class="muted small">1. Handy fest auf Stativ/Halterung, ca. 1–2 m vor der Scheibe, ganze Scheibe im Bild (am besten leicht seitlich oder von unten, nicht im Wurfweg).<br>
-    2. Ziehe die 4 roten Punkte auf den <b>äußeren Rand des Doppelrings</b>: ${CAL_NAMES.map((n, i) => `${i + 1} = ${n}`).join(', ')}.<br>
-    3. Das grüne/gelbe Gitter muss danach genau auf den Ringen liegen.</p>
+    2. Ins Gitter tippen und ziehen = ganzes Gitter verschieben. Dann die 4 roten Punkte auf den <b>äußeren Rand des Doppelrings</b> ziehen: ${CAL_NAMES.map((n, i) => `${i + 1} = ${n}`).join(', ')}.<br>
+    3. Das Gitter muss danach genau auf den Ringen liegen (bei schräger Kamera wird es zum Oval – das ist richtig).</p>
     <div id="calSlot" class="calslot"></div>
-    <button class="btn primary big wide" data-act="camCalDone">✓ Fertig</button>`, 'wide');
+    <div class="row gap"><button class="btn grow" data-act="camCircle">⭕ Kreis zurücksetzen</button><button class="btn primary grow" data-act="camCalDone">✓ Fertig</button></div>`, 'wide');
   c.attach($('#calSlot'));
   c.start().then(() => { c.startCalibration(); setTimeout(() => c.drawOverlay(), 400); });
 }
@@ -789,7 +791,21 @@ function tabSystem() {
   <section class="card"><h3>💾 Daten</h3><p class="muted small">Alles bleibt nur auf diesem Gerät. Sichere es, um es auf ein anderes Gerät mitzunehmen.</p>
     <div class="row gap"><button class="btn grow" data-act="export">Sichern</button><button class="btn grow" data-act="import">Wiederherstellen</button></div>
     <button class="btn ghost wide danger" data-act="wipe">Spielverlauf löschen</button></section>
+  <section class="card"><h3>🧾 Fehlerprotokoll</h3><p class="muted small">Zeichnet Fehler und wichtige Ereignisse auf (Musik, Caller, Kamera, Updates) – nur auf diesem Gerät. Bei Problemen „Teilen“ und an den Entwickler schicken.</p>
+    <div class="row gap"><button class="btn grow" data-act="logShow">Anzeigen (${entries().length})</button><button class="btn grow" data-act="logShare">Teilen / Speichern</button></div></section>
   <p class="muted center small">Darts Arena ${esc(APP_VERSION.version)} · Offline nutzbar · Keine Werbung, kein Konto</p>`;
+}
+
+function fullLog() {
+  const head = `Darts Arena ${APP_VERSION.version} (${updateState().kind}) · ${new Date().toLocaleString('de-DE')}\n${navigator.userAgent}\nCaller: ${S.caller} · Musik: ${S.music ? S.musicSource : 'aus'}${S.musicName ? ' (' + S.musicName + ')' : ''} · Eingabe: ${S.input}`;
+  return logText(head);
+}
+function showLog() {
+  const es = entries().slice(-150).reverse();
+  modal(`<h3>🧾 Fehlerprotokoll</h3>
+    <div class="logbox">${es.map((e) => `<div class="${e.l === 'error' ? 'e' : e.l === 'warn' ? 'w' : 'i'}">${new Date(e.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })} · ${esc(e.a)}: ${esc(e.m)}${e.n > 1 ? ` (×${e.n})` : ''}</div>`).join('') || '<div class="i">Noch keine Einträge – alles läuft rund.</div>'}</div>
+    <div class="row gap" style="margin-top:10px"><button class="btn grow" data-act="logCopy">Kopieren</button><button class="btn grow" data-act="logShare">Teilen</button><button class="btn ghost danger" data-act="logClear">Leeren</button></div>
+    <button class="btn ghost wide" data-act="close">Schließen</button>`);
 }
 
 function editProfile(id) {
@@ -954,13 +970,7 @@ function onClick(e) {
     }
     case 'rules': modal(`<h3>${esc(gameById(el.dataset.g).meta.name)}</h3><p class="pre">${esc(RULES[el.dataset.g] || '')}</p><button class="btn wide" data-act="close">Verstanden</button>`); break;
     case 'close': closeModal(); break;
-    case 'leave':
-      if (ui.game && !ui.game.s.over) {
-        modal(`<h3>Spiel verlassen?</h3><p class="muted">Das Spiel bleibt gespeichert – du kannst es auf der Startseite fortsetzen.</p>
-          <div class="row gap"><button class="btn grow" data-act="close">Weiterspielen</button><button class="btn primary grow" data-act="leaveOk">Verlassen</button></div>
-          <button class="btn ghost wide danger" data-act="abandon">Spiel abbrechen (nicht speichern)</button>`);
-      } else go('home');
-      break;
+    case 'leave': askLeave(); break;
     case 'leaveOk': closeModal(); stopCalls(); go('home'); break;
     case 'abandon': closeModal(); stopCalls(); store.clearRunning(); ui.game = null; go('home'); break;
     case 'mute': S.caller = S.caller === 'off' ? (localStorage.getItem('da.lastCaller') || 'showman') : (localStorage.setItem('da.lastCaller', S.caller), 'off'); saveSettings(); stopCalls(); render(); break;
@@ -989,6 +999,18 @@ function onClick(e) {
     case 'camCal': calibrateCam(); break;
     case 'camCalDone': if (ui.cam) ui.cam.endCalibration(); closeModal(); render(); toast('Kalibrierung gespeichert'); break;
     case 'camRelearn': if (ui.cam) ui.cam.relearn(); break;
+    case 'camCircle': if (ui.cam) ui.cam.resetCircle(); break;
+    case 'logShow': showLog(); break;
+    case 'logCopy': { const t = fullLog(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Protokoll kopiert'), () => toast('Kopieren nicht möglich – bitte „Teilen/Speichern“ nutzen', 'warn')); break; }
+    case 'logShare': {
+      const t = fullLog();
+      if (navigator.share) { navigator.share({ title: 'Darts Arena – Fehlerprotokoll', text: t }).catch(() => {}); break; }
+      const nb = nativeBridge();
+      if (nb && nb.saveFile) { nb.saveFile(`darts-arena-protokoll-${new Date().toISOString().slice(0, 10)}.txt`, t); break; }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain' })); a.download = 'darts-arena-protokoll.txt'; a.click();
+      break;
+    }
+    case 'logClear': clearLog(); showLog(); break;
     case 'rematch': {
       const e = ui.lastResult.entry;
       const players = ui.setup.players.map((p) => ({ ...p }));
@@ -1007,7 +1029,8 @@ function onClick(e) {
         const f0 = inp.files[0]; if (!f0) return;
         await musicFileSave(f0);
         S.musicSource = 'own'; S.musicName = f0.name; S.music = true; saveSettings();
-        musicWanted(true); toast(`🎵 „${esc(f0.name)}“ läuft jetzt im Menü`); render();
+        log('Musik', `Neuer Song gewählt: ${f0.name}`);
+        musicReload(); toast(`🎵 „${esc(f0.name)}“ läuft jetzt im Menü`); render();
       };
       inp.click();
       break;
@@ -1166,13 +1189,34 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Android-Zurück-Taste (aus der APK) und Browser-Zurück
+/** Im Spiel: nachfragen statt die App zu schließen. */
+function askLeave() {
+  if (!ui.game || ui.game.s.over) { go('home'); return; }
+  modal(`<h3>Möchten Sie das Spiel beenden?</h3><p class="muted">Das Spiel bleibt gespeichert – Sie können es auf der Startseite fortsetzen.</p>
+    <div class="row gap"><button class="btn grow" data-act="close">Weiterspielen</button><button class="btn primary grow" data-act="leaveOk">Beenden</button></div>
+    <button class="btn ghost wide danger" data-act="abandon">Spiel abbrechen (nicht speichern)</button>`);
+}
+
 window.__dartsBack = () => {
-  if ($('#modal').className !== 'hidden') { closeModal(); return true; }
-  if (ui.view === 'play') { onClick({ target: Object.assign(document.createElement('button'), { dataset: { act: 'leave' } }) }); return true; }
-  if (['setup', 'help'].includes(ui.view)) { go('games'); return true; }
-  if (ui.view !== 'home') { go('home'); return true; }
-  return false;
+  try {
+    if ($('#modal').className !== 'hidden') { closeModal(); return true; }
+    if (ui.view === 'play') { askLeave(); return true; }
+    if (['setup', 'help'].includes(ui.view)) { go('games'); return true; }
+    if (ui.view !== 'home') { go('home'); return true; }
+    return false; // Startseite: App darf sich schließen
+  } catch (e) {
+    logError('Zurück', e);
+    return ui.view !== 'home'; // im Zweifel nie aus einem Spiel heraus schließen
+  }
 };
+
+// Browser/PWA (Android-Zurück, Wisch-Geste): im Spiel einen Verlaufseintrag als „Puffer“ halten
+window.addEventListener('popstate', () => {
+  if (ui.view === 'play' || $('#modal').className !== 'hidden') {
+    history.pushState({ darts: 1 }, '');
+    window.__dartsBack();
+  }
+});
 
 // ================================================================== Start
 async function boot() {
@@ -1184,7 +1228,11 @@ async function boot() {
     if (ui.view === 'more') render();
     if (u.available && !ui.updToasted) { ui.updToasted = true; toast(`⬆️ Neue Version verfügbar – <u data-act="update">jetzt aktualisieren</u>`, 'gold'); }
   });
+  log('App', `Start ${APP_VERSION.version} · ${isApk() ? 'APK' : 'PWA'} · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 120)}`);
   onNative((type, d) => {
+    if (type === 'log') log(d && d.area || 'Android', d && d.msg || d, d && d.level || 'info');
+    if (type === 'updateStatus' && d && d.text) log('Update', d.text);
+    if (type === 'updateConflict') logError('Update', 'Signatur passt nicht – Neuinstallation nötig');
     if (type === 'toast') toast(esc(d));
     if (type === 'updateConflict') {
       modal(`<h3>⚠️ Einmalige Neuinstallation nötig</h3>

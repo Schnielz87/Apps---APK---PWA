@@ -351,3 +351,11 @@ select.sel { font: inherit; color: var(--tx); background: var(--bg2); border: 1p
 .prow .grow b { display: block; overflow-wrap: anywhere; line-height: 1.25; }
 .prow.cpu .cpulvl { flex-basis: 100%; display: flex; align-items: center; gap: 10px; padding-left: 46px; }
 .prow.cpu .cpulvl input[type="range"] { flex: 1; padding: 0; border: 0; background: none; accent-color: var(--red); }
+
+/* Kalibrieren: Kamerabild passt immer komplett auf den Bildschirm (Gitter liegt exakt darüber) */
+.calslot .cam { width: fit-content; max-width: 100%; margin: 0 auto; }
+.calslot .cam video { width: auto; max-width: 100%; max-height: 52vh; }
+.camslot .cam { width: fit-content; max-width: 100%; margin: 0 auto; }
+.camslot .cam video { width: auto; max-width: 100%; max-height: 40vh; }
+.logbox { max-height: 45vh; overflow: auto; font: 12px/1.45 ui-monospace, Menlo, monospace; background: #000; border: 1px solid var(--line); border-radius: 12px; padding: 10px; white-space: pre-wrap; word-break: break-word; }
+.logbox .e { color: #ff8a80; } .logbox .w { color: var(--gold); } .logbox .i { color: #b0bec5; }
