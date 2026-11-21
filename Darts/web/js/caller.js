@@ -59,11 +59,11 @@ export function textFor(call, ctx = {}, callerId = settings.caller) {
   const name = ctx.name || '';
   if (call.phrase) {
     const P = en ? {
-      bust: 'No score', gameshot: 'Game shot!', leg: 'Game shot, and the leg!', set: 'Game shot, and the set!',
+      bust: 'No score', elim: 'Eliminated!', gameshot: 'Game shot!', leg: 'Game shot, and the leg!', set: 'Game shot, and the set!',
       match: `Game shot, and the match${name ? ', ' + name : ''}!`, shanghai: 'Shanghai!', halved: 'Halved!', missed: 'Unlucky',
       gameon: `${name ? name + ' to throw first. ' : ''}Game on!`,
     } : {
-      bust: c.id === 'kalle' ? 'Überworfen. Klassiker.' : 'Überworfen', gameshot: 'Game Shot!', leg: 'Game Shot, und das Leg!', set: 'Game Shot, und der Satz!',
+      bust: c.id === 'kalle' ? 'Überworfen. Klassiker.' : 'Überworfen', elim: c.id === 'kalle' ? 'Zack, zurück auf null!' : 'Eliminiert!', gameshot: 'Game Shot!', leg: 'Game Shot, und das Leg!', set: 'Game Shot, und der Satz!',
       match: `Game Shot, und das Match${name ? ' für ' + name : ''}!`, shanghai: 'Shanghai!', halved: 'Halbiert!', missed: 'Schade',
       gameon: `${name ? name + ' beginnt. ' : ''}Game on!`,
     };
@@ -269,6 +269,7 @@ function tvParts(call, ctx) {
   if (call.phrase === 'set') return [P('Game shot, and the set!', 0.96, 1.12)];
   if (call.phrase === 'match') return [P('Game shot, and the match!', 0.94, 1.15, 60), name ? P(name + '!', 1.0, 1.1) : null].filter(Boolean);
   if (call.phrase === 'bust') return [P('No score!', 1.0, 1.0)];
+  if (call.phrase === 'elim') return [P('Eliminated!', 0.95, 1.15)];
   if (call.score === 180) return [P('One hundred', 0.98, 1.05, 30), P('and eighty!', 0.78, 1.2)];
   if (call.score === 0) return [P('No score!', 1.0, 1.0)];
   if (call.score != null && call.score >= 100) return [P(enWords(call.score) + '!', 1.0, 1.1)];

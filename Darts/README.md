@@ -16,7 +16,7 @@ Sprachausgabe und Selbst-Update).
 
 ## Funktionen
 
-- **12 Spielmodi** – Match: X01 (101–1001, Double/Master/Single-Out, Double-/Master-In, Legs & Sets), Cricket
+- **13 Spielmodi** – Match: X01 (101–1001, Double/Master/Single-Out, Double-/Master-In, Legs & Sets), Cricket, Elimination
   (Standard, Cut-Throat, ohne Punkte), Shanghai, Halve-It, Killer, Baseball. Training: Around the Clock, Bob's 27,
   Checkout-Training, Scoring 99, Doppel-Training, 121-Checkout-Leiter.
 - **CPU-Gegner in 10 Stufen** (Ø ca. 25 bis 115) – echtes Wurfmodell auf der Scheibe, kalibriert per Simulation

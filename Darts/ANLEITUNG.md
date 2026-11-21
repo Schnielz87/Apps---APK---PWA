@@ -1,6 +1,6 @@
 # 🎯 Darts Arena – so kommst du an die App
 
-Darts-Scorer, Training und Gegner in einem: 12 Spielmodi, CPU-Gegner in 10 Stufen, Caller, Statistik, Erfolge.
+Darts-Scorer, Training und Gegner in einem: 13 Spielmodi, CPU-Gegner in 10 Stufen, Caller, Statistik, Erfolge.
 Kostenlos, ohne Werbung, ohne Konto – alle Daten bleiben auf deinem Gerät.
 
 ## 🍏 iPhone / iPad – als App auf den Home-Bildschirm

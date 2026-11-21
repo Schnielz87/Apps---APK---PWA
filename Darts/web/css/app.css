@@ -359,3 +359,12 @@ select.sel { font: inherit; color: var(--tx); background: var(--bg2); border: 1p
 .camslot .cam video { width: auto; max-width: 100%; max-height: 40vh; }
 .logbox { max-height: 45vh; overflow: auto; font: 12px/1.45 ui-monospace, Menlo, monospace; background: #000; border: 1px solid var(--line); border-radius: 12px; padding: 10px; white-space: pre-wrap; word-break: break-word; }
 .logbox .e { color: #ff8a80; } .logbox .w { color: var(--gold); } .logbox .i { color: #b0bec5; }
+
+/* ⓘ Spielregeln */
+.info-btn { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-grid; place-items: center; font: italic 800 1rem Georgia, 'Times New Roman', serif; color: #fff; background: #3d8bfd22; border: 1.5px solid #3d8bfdaa; transition: transform .2s; }
+.info-btn:active { transform: scale(.88); }
+.setup-head .info-btn { margin-left: auto; }
+.gcard-wrap .gcard { padding-right: 92px; }
+.info-btn.in-card { position: absolute; right: 52px; top: 50%; transform: translateY(-50%); }
+.info-btn.in-card:active { transform: translateY(-50%) scale(.88); }
+.rules-head { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; } .rules-head h3 { margin: 0; } .rules-head small { color: var(--mu); }

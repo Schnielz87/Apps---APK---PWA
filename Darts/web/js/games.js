@@ -818,6 +818,63 @@ export class Baseball extends Base {
   hint() { const t = Math.min(this.s.round, 9); return `Inning ${t}/9 · Ziel: ${t}${t === 7 ? ' (Bull = doppelt)' : ''}`; }
 }
 
-export const GAMES = [X01, Cricket, AroundClock, Bobs27, CheckoutTraining, ScoreTraining, DoublesTraining, Ladder121, Shanghai, HalveIt, Killer, Baseball];
+// ================================================================== Elimination
+export class Elimination extends Base {
+  static meta = {
+    id: 'elimination', name: 'Elimination', icon: '💥', cat: 'match', min: 2, max: 8,
+    desc: 'Von 0 hoch auf genau 301. Triffst du den Punktestand eines Gegners, muss er zurück auf 0!',
+    options: [
+      { key: 'target', label: 'Ziel', values: [301, 501], def: 301 },
+      { key: 'out', label: 'Check-Out', values: ['single', 'double'], names: ['Beliebig (genau)', 'Double-Out'], def: 'single' },
+    ],
+  };
+  init() { this.s.sc = this.players.map(() => 0); this.s.turnStart = 0; this.s.kills = this.players.map(() => 0); }
+  throwDart(d, pos) { if (!this.s.turn.length) this.s.turnStart = this.s.sc[this.s.cur]; return super.throwDart(d, pos); }
+  onDart(p, d) {
+    const v = value(d);
+    const n = this.s.sc[p] + v;
+    const t = this.cfg.target;
+    const dbl = this.cfg.out === 'double';
+    if (n > t || (dbl && n === t - 1) || (n === t && dbl && d.mult !== 2)) {
+      this.s.sc[p] = this.s.turnStart;
+      return { end: true, bust: true, call: { phrase: 'bust' } };
+    }
+    this.s.sc[p] = n;
+    this.s.st[p].points += v;
+    if (n === t) { this.s.over = true; this.s.winner = p; return { end: true, won: true, call: { phrase: 'match' } }; }
+    return {};
+  }
+  onTurnEnd(p, ev) {
+    if (ev.bust || ev.won) return;
+    const mine = this.s.sc[p];
+    const hit = [];
+    if (mine > 0) this.players.forEach((pl, i) => { if (i !== p && this.s.sc[i] === mine) { this.s.sc[i] = 0; hit.push(pl.name); } });
+    if (hit.length) { this.s.kills[p] += hit.length; ev.text = `💥 ${hit.join(', ')} zurück auf 0!`; ev.call = { phrase: 'elim' }; ev.elim = true; }
+    else ev.call = { score: ev.total };
+  }
+  score(i) { return this.s.sc[i]; }
+  cpuTarget() {
+    const p = this.s.cur;
+    const rest = this.cfg.target - this.s.sc[p];
+    const left = 3 - this.s.turn.length;
+    if (this.cfg.out === 'double') return aimFor(rest, left, 'double');
+    // genau treffen: passt der Rest in einen Dart, direkt darauf zielen
+    if (rest <= 20) return dart(rest, 1);
+    if (rest <= 60 && rest % 3 === 0) return dart(rest / 3, 3);
+    if (rest <= 40 && rest % 2 === 0) return dart(rest / 2, 2);
+    if (rest === 25 || rest === 50) return dart(25, rest === 50 ? 2 : 1);
+    return rest > 60 ? dart(20, 3) : dart(Math.min(20, rest - 20 > 0 ? 20 : rest), 1);
+  }
+  panel(i) { return { main: this.s.sc[i], sub: `noch ${this.cfg.target - this.s.sc[i]}`, extra: this.s.kills[i] ? `💥 ${this.s.kills[i]}` : '', progress: this.s.sc[i] / this.cfg.target }; }
+  hint() {
+    const p = this.s.cur;
+    const rest = this.cfg.target - this.s.sc[p];
+    const others = this.players.map((_, i) => i).filter((i) => i !== p && this.s.sc[i] > this.s.sc[p]).map((i) => this.s.sc[i] - this.s.sc[p]).filter((d) => d <= 180);
+    const r = this.cfg.out === 'double' ? bestCheckout(rest, 3 - this.s.turn.length) : null;
+    return (r ? `Checkout: ${checkoutText(r)}` : `Rest ${rest}`) + (others.length ? ` · Eliminieren mit ${others.join(' / ')}` : '');
+  }
+}
+
+export const GAMES = [X01, Cricket, Elimination, AroundClock, Bobs27, CheckoutTraining, ScoreTraining, DoublesTraining, Ladder121, Shanghai, HalveIt, Killer, Baseball];
 export const gameById = (id) => GAMES.find((g) => g.meta.id === id);
 export { MISS, isDouble };

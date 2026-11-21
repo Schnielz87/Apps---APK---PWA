@@ -246,7 +246,7 @@ function tileSub(t, lastCpu) {
     const c = cfg || { start: 501, in: 'straight', out: 'double', legs: 1 };
     txt = `${c.start} · ${{ double: 'Double-Out', single: 'Single-Out', master: 'Master-Out' }[c.out]}${c.in !== 'straight' ? ' · ' + (c.in === 'double' ? 'Double-In' : 'Master-In') : ''}${c.legs > 1 ? ' · FT' + c.legs : ''}`;
   } else txt = gameById(t.g).meta.cat === 'training' ? 'Training' : 'Match';
-  return t.cpu ? `${txt} · CPU ${lastCpu}` : txt;
+  return t.cpu ? `${txt} · CPU ${lastCpu}` : `${txt} · Solo & Freunde`;
 }
 function tileHtml(t, lastCpu) {
   const cls = t.cpu ? 'red' : t.g === 'x01' ? 'green' : '';
@@ -268,10 +268,10 @@ function setTiles(ids) { S.homeTiles = ids.slice(0, 12); saveSettings(); }
 // ================================================================== Spieleliste
 function viewGames() {
   const pinned = new Set(homeTiles().map((t) => t.id));
-  const card = (G) => `<div class="gcard-wrap"><button class="gcard" data-act="setup" data-g="${G.meta.id}"><span class="gi">${G.meta.icon}</span><div><b>${esc(G.meta.name)}</b><small>${esc(G.meta.desc)}</small></div></button><button class="pin ${pinned.has(G.meta.id) ? 'on' : ''}" data-act="pin" data-id="${G.meta.id}" title="Auf die Startseite">${pinned.has(G.meta.id) ? '★' : '☆'}</button></div>`;
+  const card = (G) => `<div class="gcard-wrap"><button class="gcard" data-act="setup" data-g="${G.meta.id}"><span class="gi">${G.meta.icon}</span><div><b>${esc(G.meta.name)}</b><small>${esc(G.meta.desc)}</small></div></button><button class="info-btn in-card" data-act="rules" data-g="${G.meta.id}" title="Spielregeln">i</button><button class="pin ${pinned.has(G.meta.id) ? 'on' : ''}" data-act="pin" data-id="${G.meta.id}" title="Auf die Startseite">${pinned.has(G.meta.id) ? '★' : '☆'}</button></div>`;
   return `<h2 class="h">Matchspiele</h2><div class="glist">${GAMES.filter((g) => g.meta.cat === 'match').map(card).join('')}</div>
   <h2 class="h">Training</h2><div class="glist">${GAMES.filter((g) => g.meta.cat === 'training').map(card).join('')}</div>
-  <button class="btn ghost wide" data-go="help">📖 Spielregeln</button>`;
+  `;
 }
 
 // ================================================================== Spiel einrichten
@@ -303,9 +303,9 @@ function viewSetup() {
       <button class="icon" data-act="pDel" data-i="${i}" ${su.players.length <= 1 ? 'disabled' : ''}>✕</button>
       ${p.cpu ? `<div class="cpulvl"><button class="icon" data-act="cpuLvl" data-i="${i}" data-d="-1">−</button><input type="range" min="1" max="10" step="1" value="${p.cpu}" data-cpulvl="${i}"><button class="icon" data-act="cpuLvl" data-i="${i}" data-d="1">+</button></div>` : ''}</div>`).join('');
   return `
-  <div class="setup-head"><button class="back" data-go="games">‹</button><span class="gi">${G.meta.icon}</span><div><h2>${esc(G.meta.name)}</h2><small>${esc(G.meta.desc)}</small></div><button class="icon" data-act="rules" data-g="${G.meta.id}">?</button></div>
+  <div class="setup-head"><button class="back" data-go="${ui.setupMode ? 'home' : 'games'}">‹</button><span class="gi">${ui.setupMode === 'cpu' ? '🤖' : G.meta.icon}</span><div><h2>${esc(G.meta.name)}${ui.setupMode === 'cpu' ? ' gegen CPU' : ui.setupMode === 'human' ? ' – Solo & Freunde' : ''}</h2><small>${ui.setupMode === 'cpu' ? 'Wähle die Stärke deines Gegners und die Spielregeln.' : ui.setupMode === 'human' ? 'Allein trainieren oder mit Freunden am selben Gerät spielen.' : esc(G.meta.desc)}</small></div><button class="info-btn" data-act="rules" data-g="${G.meta.id}" title="Spielregeln">i</button></div>
   ${ui.daily ? '<div class="pill gold block">☀️ Tages-Challenge</div>' : ''}
-  <section class="card"><div class="row between"><h3>Spieler</h3><small>${su.players.length}/${G.meta.max}</small></div>${plist}
+  <section class="card"><div class="row between"><h3>${ui.setupMode === 'cpu' ? 'Du & dein Gegner' : 'Spieler'}</h3><small>${su.players.length}/${G.meta.max}</small></div>${plist}
     <div class="row gap"><button class="btn" data-act="addHuman" ${su.players.length >= G.meta.max ? 'disabled' : ''}>＋ Spieler</button><button class="btn" data-act="addCpu" ${su.players.length >= G.meta.max ? 'disabled' : ''}>＋ CPU</button></div>
   </section>
   ${opts ? `<section class="card">${opts}</section>` : ''}
@@ -382,7 +382,7 @@ function viewPlay() {
   const canKeypad = !!G.meta.visit;
   return `
   <div class="playbar"><button class="back" data-act="leave">‹</button><b>${G.meta.icon} ${esc(G.meta.name)}${g.cfg.start ? ' ' + g.cfg.start : ''}</b>
-    <div class="row"><button class="icon" data-act="mute" title="Caller">${S.caller === 'off' ? '🔇' : '🔊'}</button><button class="icon" data-act="rules" data-g="${G.meta.id}">?</button></div></div>
+    <div class="row"><button class="icon" data-act="mute" title="Caller">${S.caller === 'off' ? '🔇' : '🔊'}</button><button class="info-btn" data-act="rules" data-g="${G.meta.id}" title="Spielregeln">i</button></div></div>
   <div class="panels ${many ? 'many' : ''}">${panels}</div>
   <div class="hint">${esc(hint) || '&nbsp;'}</div>
   <div class="turnrow"><div class="slots">${slots}</div><div class="tsum">${turn.length ? turnSum : ''}</div>
@@ -462,9 +462,9 @@ function afterPlayRender() {
 function calibrateCam() {
   const c = camera();
   modal(`<h3>🎯 Kamera ausrichten</h3>
-    <p class="muted small">1. Handy fest auf Stativ/Halterung, ca. 1–2 m vor der Scheibe, ganze Scheibe im Bild (am besten leicht seitlich oder von unten, nicht im Wurfweg).<br>
+    <p class="muted small">1. Handy fest aufs Stativ <b>seitlich neben das Board</b> (ca. 30–60° schräg, 0,5–1,5 m entfernt, nicht im Wurfweg), sodass die ganze Scheibe im Bild ist.<br>
     2. Ins Gitter tippen und ziehen = ganzes Gitter verschieben. Dann die 4 roten Punkte auf den <b>äußeren Rand des Doppelrings</b> ziehen: ${CAL_NAMES.map((n, i) => `${i + 1} = ${n}`).join(', ')}.<br>
-    3. Das Gitter muss danach genau auf den Ringen liegen (bei schräger Kamera wird es zum Oval – das ist richtig).</p>
+    3. Von der Seite sieht die Scheibe wie ein schmales Oval aus – das ist richtig. Die 4 Punkte einfach auf das Oval ziehen, bis das Gitter genau auf den Ringen liegt. Die Zahlen am Gitter zeigen, ob 20 oben ist.</p>
     <div id="calSlot" class="calslot"></div>
     <div class="row gap"><button class="btn grow" data-act="camCircle">⭕ Kreis zurücksetzen</button><button class="btn primary grow" data-act="camCalDone">✓ Fertig</button></div>`, 'wide');
   c.attach($('#calSlot'));
@@ -492,6 +492,7 @@ function handleEvent(ev) {
     else if (ev.total >= 140 && !ev.bust && (g.meta.id === 'x01' || g.meta.id === 'scoring')) { sfx.cheer(0.5); bigFlash(String(ev.total), 'ton'); }
     if (ev.won) { sfx.cheer(1); confetti(70); bigFlash(g.s.over ? 'GAME SHOT!' : `LEG ${p.name}`, 'win'); }
     if (ev.shanghai) { sfx.fanfare(); confetti(120); bigFlash('SHANGHAI!', 'max'); }
+    if (ev.elim) { sfx.bust(); buzz(80); bigFlash('💥 ELIMINIERT!', 'bust'); }
     if (ev.text && !ev.bust) toast(esc(ev.text));
     say(ev.call, { name: p.name });
     if (ev.require && S.callRest && !g.s.over) say({ require: ev.require.rest }, { name: g.players[ev.require.player].name });
@@ -773,7 +774,7 @@ function tabSpiel() {
     <div class="opt"><label>CPU-Tempo</label><div class="seg">${['Gemütlich', 'Normal', 'Schnell'].map((l, i) => `<button class="${S.cpuSpeed === i ? 'on' : ''}" data-act="setv" data-k="cpuSpeed" data-v="${i}" data-num="1">${l}</button>`).join('')}</div></div></section>
   <section class="card"><h3>📷 Kamera-Autoscore <span class="pill gold">Beta</span></h3>
     ${tog('autoscore', 'Darts automatisch erkennen', 'Handy auf Stativ vor der Scheibe. Im Spiel Eingabe „📷 Kamera“ wählen und einmal kalibrieren.')}</section>
-  <section class="card"><h3>📖 Hilfe</h3><button class="btn wide" data-go="help">Spielregeln & Bedienung</button></section>`;
+  <section class="card"><h3>📖 Hilfe</h3><button class="btn wide" data-go="help">Bedienung & alle Spielregeln</button></section>`;
 }
 
 function tabSystem() {
@@ -947,7 +948,7 @@ function onClick(e) {
       startGame({ id: r.gameId, cfg: r.cfg, players: r.players }, r);
       break;
     }
-    case 'setup': ui.daily = false; ui.setup = defaultSetup(el.dataset.g); launch(el, () => go('setup')); break;
+    case 'setup': ui.daily = false; ui.setupMode = null; ui.setup = defaultSetup(el.dataset.g); launch(el, () => go('setup')); break;
     case 'opt': { const o = gameById(su.id).meta.options.find((x) => x.key === el.dataset.k); su.cfg[o.key] = o.values[+el.dataset.i]; ui.justSel = `[data-act="opt"][data-k="${o.key}"][data-i="${el.dataset.i}"]`; render(); break; }
     case 'addHuman': pickHuman(); break;
     case 'addCpu': pickCpu(); break;
@@ -968,7 +969,7 @@ function onClick(e) {
       gameOnIntro(() => startGame({ id: su.id, cfg: { ...su.cfg }, players: su.players.map((p) => ({ ...p })) }));
       break;
     }
-    case 'rules': modal(`<h3>${esc(gameById(el.dataset.g).meta.name)}</h3><p class="pre">${esc(RULES[el.dataset.g] || '')}</p><button class="btn wide" data-act="close">Verstanden</button>`); break;
+    case 'rules': { const G = gameById(el.dataset.g); modal(`<div class="rules-head"><span class="gi">${G.meta.icon}</span><div><small>Spielregeln</small><h3>${esc(G.meta.name)}</h3></div></div><p class="pre">${esc(RULES[el.dataset.g] || G.meta.desc)}</p><button class="btn primary wide" data-act="close">Verstanden 👍</button>`); break; }
     case 'close': closeModal(); break;
     case 'leave': askLeave(); break;
     case 'leaveOk': closeModal(); stopCalls(); go('home'); break;
@@ -1067,7 +1068,15 @@ function onClick(e) {
       const t = tileDefs().find((d) => d.id === el.dataset.id);
       if (!t) break;
       ui.daily = false;
-      ui.setup = defaultSetup(t.g, t.cpu ? (+localStorage.getItem('da.lastCpu') || 3) : null);
+      ui.setupMode = t.cpu ? 'cpu' : 'human';
+      const su1 = defaultSetup(t.g, t.cpu ? (+localStorage.getItem('da.lastCpu') || 3) : null);
+      if (!t.cpu) {
+        // „X01“-Kachel: nur Menschen (Solo oder mit Freunden) – CPU gibt es auf der eigenen Kachel
+        su1.players = su1.players.filter((p) => !p.cpu);
+        if (!su1.players.length) su1.players = [pl(activeProfile())];
+        if (su1.players.length < gameById(t.g).meta.min) su1.players.push(cpuPlayer(+localStorage.getItem('da.lastCpu') || 3));
+      }
+      ui.setup = su1;
       launch(el, () => go('setup'));
       break;
     }
