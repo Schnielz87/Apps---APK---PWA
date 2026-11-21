@@ -39,14 +39,17 @@ Installieren-Symbol (Bildschirm mit Pfeil) klicken. Mit Tastatur: Punktzahl tipp
   (Stufe 1 ≈ Schnitt 25 bis Stufe 10 ≈ Schnitt 115).
 - **Eingabe:** *Summe* (Aufnahme als Zahl, am schnellsten), *Felder* (Single/Double/Triple + Zahl, Dart für Dart)
   oder *Scheibe* (direkt antippen). **↶ Zurück** korrigiert Fehleingaben.
-- **Caller wählen:** *Mehr → Caller* – mit „▶ Probe“ anhören. Ton am Handy lauter stellen und **Stumm-Schalter am iPhone aus**.
+- **Caller wählen:** *Mehr → Registerkarte „Caller“* – mit ▶ anhören. Ton am Handy lauter stellen und **Stumm-Schalter am iPhone aus**.
+- **Eigene Stimme als Caller:** *Mehr → Caller → „＋ Neue Stimme aufnehmen“* → Name und Sprache wählen → „Automatisch aufnehmen“.
+  Die App zeigt groß, was du sagen sollst, piept, nimmt auf, stoppt von selbst bei Stille und springt zur nächsten Ansage
+  (ca. 40 kurze Aufnahmen, 5 Minuten). Alle Zahlen bis 180 setzt sie daraus selbst zusammen. Danach ist deine Stimme der Caller.
 - **Jeden Tag** wartet eine neue **Tages-Challenge** mit Bonus-XP. Wer täglich spielt, baut seine 🔥-Serie aus.
 - **Mehrere Spieler:** *Mehr → Profile* – jeder bekommt eigene Statistik.
-- **Menü-Musik:** *Mehr → Menü-Musik* – eingebauter Loop oder eigener Song vom Handy (bleibt nur auf dem Gerät).
+- **Menü-Musik:** *Mehr → Sound → Menü-Musik* – eingebauter Loop oder eigener Song vom Handy (bleibt nur auf dem Gerät).
 
 ## 📷 Kamera-Autoscore (Beta, optional)
 
-1. *Mehr → Ton & Bedienung →* **„Kamera-Autoscore (Beta)“** einschalten.
+1. *Mehr → Spiel →* **„Kamera-Autoscore“** einschalten.
 2. Handy auf ein **Stativ/eine Halterung**, ca. 1–2 m vor die Scheibe, ganze Scheibe im Bild, nicht im Wurfweg
    (leicht seitlich oder von unten). Gutes, gleichmäßiges Licht hilft sehr.
 3. Im Spiel die Eingabe **„📷 Kamera“** wählen → **Kalibrieren**: die 4 roten Punkte auf den äußeren Rand des

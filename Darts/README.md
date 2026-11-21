@@ -22,8 +22,10 @@ Sprachausgabe und Selbst-Update).
 - **CPU-Gegner in 10 Stufen** (Ø ca. 25 bis 115) – echtes Wurfmodell auf der Scheibe, kalibriert per Simulation
   (`tools/kalibrieren.mjs`), spielt Checkout-Wege wie ein Profi.
 - **Caller:** The Showman (englisch, im Stil der TV-Referees), Der Kommentator, Die Schiedsrichterin, Lady Oche,
-  Kneipen-Kalle, Robo-Caller 3000 – plus **eigenes Sound-Paket** (Aufnahmen per Mikrofon oder Audiodateien, z. B. ein
-  lizenziertes Caller-Paket: `180.mp3`, `noscore.mp3`, `gameshot.mp3` …).
+  Kneipen-Kalle, Robo-Caller 3000. The Showman und Lady Oche sprechen im TV-Stil („Ladies and gentlemen …“, Pausen, Betonung).
+- **Eigene Stimmen einsprechen:** Assistent sagt jede Ansage vor, nimmt automatisch auf (stoppt bei Stille), schneidet zu und
+  geht weiter. Zahlen werden aus ~40 Bausteinen zusammengesetzt (`web/js/voice.js`) – beliebig viele Stimmen, Deutsch oder Englisch.
+- **Sound-Paket aus Dateien** (z. B. lizenzierte Caller-Dateien `180.mp3`, `noscore.mp3`, `gameshot.mp3` …).
 - **Eingabe:** Summe per Tastenfeld (schnell), Feld für Feld (S/D/T), oder direkt auf der Scheibe. Rückgängig jederzeit.
 - **Checkout-Hilfe** für jeden Rest, inklusive Bogey-Warnung.
 - **Motivation:** XP & Level mit Rängen, 29 Erfolge, Tages-Challenge, Tages-Serie, persönliche Rekorde.
@@ -31,6 +33,7 @@ Sprachausgabe und Selbst-Update).
 - **📷 Kamera-Autoscore (Beta, zuschaltbar):** Handy auf Stativ, 4-Punkt-Kalibrierung, erkennt neue Darts per Bildvergleich
   und trägt sie ein (Korrektur jederzeit). Alles läuft auf dem Gerät (`web/js/cam.js`).
 - **Menü-Musik** (eingebauter Loop oder eigener Song vom Gerät), Animationen, Soundeffekte, Vibration.
+- Einstellungen als Registerkarten (Profil · Caller · Sound · Spiel · System).
 - Profile für mehrere Spieler, Spiel fortsetzen nach Neustart, Sicherung/Wiederherstellung, komplett offline.
 
 ## Updates (wie bei allen anderen Apps)

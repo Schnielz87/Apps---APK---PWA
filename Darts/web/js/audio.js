@@ -43,6 +43,7 @@ export const sfx = {
     tone(a, 140, a.currentTime, 0.09, 'triangle', 0.35);
   },
   miss() { if (!enabled) return; const a = ac(); if (!a) return; tone(a, 220, a.currentTime, 0.15, 'sine', 0.12); },
+  beep() { const a = ac(); if (!a) return; tone(a, 880, a.currentTime, 0.12, 'sine', 0.3); },
   click() { if (!enabled) return; const a = ac(); if (!a) return; tone(a, 1200, a.currentTime, 0.03, 'square', 0.04); },
   bust() {
     if (!enabled) return; const a = ac(); if (!a) return;

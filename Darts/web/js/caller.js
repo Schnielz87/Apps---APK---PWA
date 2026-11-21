@@ -2,26 +2,34 @@
 import { nativeBridge } from './native.js';
 
 export const CALLERS = [
-  { id: 'showman', name: 'The Showman', flag: '🇬🇧', lang: 'en-GB', pitch: 0.7, rate: 0.85, gender: 'm',
-    desc: 'Englisch, tief & langgezogen – im Stil der legendären TV-Referees. „One hundred and eightyyy!“' },
+  { id: 'showman', name: 'The Showman', flag: '🇬🇧', lang: 'en-GB', pitch: 0.72, rate: 0.82, gender: 'm', tv: true,
+    desc: 'TV-Stil: „Ladies and gentlemen … game on!“, Pausen, Betonung und ein langgezogenes „One hundred … and eightyyy!“' },
   { id: 'kommentator', name: 'Der Kommentator', flag: '🇩🇪', lang: 'de-DE', pitch: 0.85, rate: 0.95, gender: 'm',
     desc: 'Deutsch, kräftige Stimme – sachlich wie im Turnier.' },
   { id: 'schiri', name: 'Die Schiedsrichterin', flag: '🇩🇪', lang: 'de-DE', pitch: 1.2, rate: 1.0, gender: 'f',
     desc: 'Deutsch, klar und freundlich.' },
-  { id: 'lady', name: 'Lady Oche', flag: '🇬🇧', lang: 'en-GB', pitch: 1.25, rate: 0.95, gender: 'f',
+  { id: 'lady', name: 'Lady Oche', flag: '🇬🇧', lang: 'en-GB', pitch: 1.25, rate: 0.95, gender: 'f', tv: true,
     desc: 'Englisch, elegant – Ladies-Tour-Feeling.' },
   { id: 'kalle', name: 'Kneipen-Kalle', flag: '🍺', lang: 'de-DE', pitch: 1.0, rate: 1.1, gender: 'm', fun: true,
     desc: 'Deutsch & frech – kommentiert jede Aufnahme mit einem Spruch.' },
   { id: 'robo', name: 'Robo-Caller 3000', flag: '🤖', lang: 'de-DE', pitch: 0.2, rate: 1.2, gender: 'm',
     desc: 'Metallisch, schnell, gnadenlos.' },
   { id: 'custom', name: 'Eigenes Sound-Paket', flag: '🎙️', lang: 'en-GB', pitch: 0.8, rate: 0.9,
-    desc: 'Eigene Aufnahmen oder lizenzierte Caller-Dateien (z. B. 180.mp3) – fehlende Ansagen spricht The Showman.' },
+    desc: 'Geladene Caller-Dateien (z. B. lizenzierte 180.mp3) – fehlende Ansagen spricht The Showman.' },
   { id: 'off', name: 'Kein Caller', flag: '🔇', desc: 'Nur Soundeffekte.' },
 ];
 
 let settings = { caller: 'showman', volume: 0.9, callNames: true, callRest: true };
 export function setCallerSettings(s) { settings = { ...settings, ...s }; }
-export const callerById = (id) => CALLERS.find((c) => c.id === id) || CALLERS[0];
+function customVoices() { try { return JSON.parse(localStorage.getItem('da.voices') || '[]'); } catch (e) { return []; } }
+/** Feste Caller + selbst eingesprochene Stimmen. */
+export function allCallers() {
+  const own = customVoices().map((v) => ({ id: 'voice:' + v.id, voiceId: v.id, name: v.name, flag: '🎤', lang: v.lang, pitch: 0.8, rate: 0.9, own: true,
+    desc: `Deine eigene Stimme (${v.lang.startsWith('en') ? 'Englisch' : 'Deutsch'}) – fehlende Ansagen spricht ${v.lang.startsWith('en') ? 'The Showman' : 'Der Kommentator'}.` }));
+  const fixed = CALLERS.filter((c) => c.id !== 'off');
+  return [...fixed, ...own, CALLERS.find((c) => c.id === 'off')];
+}
+export const callerById = (id) => allCallers().find((c) => c.id === id) || CALLERS[0];
 
 // ------------------------------------------------------------------ Zahlwörter (Englisch, britisch mit „and“)
 const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
@@ -161,8 +169,11 @@ async function tx(mode, fn) {
 export const packSave = (key, blob) => tx('readwrite', (s) => s.put(blob, key));
 export const packDelete = (key) => tx('readwrite', (s) => s.delete(key));
 export const packClear = () => tx('readwrite', (s) => s.clear());
-export async function packKeys() { try { return (await tx('readonly', (s) => s.getAllKeys())).filter((k) => !String(k).startsWith('__')); } catch (e) { return []; } }
+export async function packKeys() { try { return (await tx('readonly', (s) => s.getAllKeys())).filter((k) => !String(k).startsWith('__') && !String(k).startsWith('v:')); } catch (e) { return []; } }
 async function packGet(key) { try { return await tx('readonly', (s) => s.get(key)); } catch (e) { return null; } }
+export const packGetRaw = packGet;
+export async function packKeysAll() { try { return (await tx('readonly', (s) => s.getAllKeys())).map(String); } catch (e) { return []; } }
+export async function packDeletePrefix(prefix) { for (const k of await packKeysAll()) if (k.startsWith(prefix)) await packDelete(k); }
 // Menü-Musik (eigene Datei) liegt im selben Speicher unter „__music“
 export const musicFileGet = () => packGet('__music');
 export const musicFileSave = (blob) => packSave('__music', blob);
@@ -212,12 +223,57 @@ async function packClips(call, ctx) {
   return blobs.length ? blobs : null;
 }
 
+/** TV-Stil: Ansage in Abschnitte mit eigener Betonung und Pausen zerlegen (nur englische TV-Caller). */
+function tvParts(call, ctx) {
+  const name = settings.callNames && ctx.name ? ctx.name : '';
+  const P = (t, rate = 1, pitch = 1, pause = 0) => ({ t, rate, pitch, pause });
+  if (call.require != null) return [P(name ? name + ',' : '', 1, 1, 120), P('you require', 0.95, 0.95, 120), P(enWords(call.require), 0.85, 1.05)].filter((x) => x.t);
+  if (call.phrase === 'gameon') return [P('Ladies and gentlemen!', 0.85, 0.9, 350), P(name ? `${name} to throw first.` : 'Let\'s play darts!', 0.95, 1, 300), P('Game on!', 0.7, 1.12)];
+  if (call.phrase === 'gameshot' && call.leg) return [P('Game shot!', 0.75, 1.1, 250), P('And the leg!', 0.7, 0.95)];
+  if (call.phrase === 'gameshot') return [P('Game shot!', 0.75, 1.1)];
+  if (call.phrase === 'set') return [P('Game shot!', 0.75, 1.1, 250), P('And the set!', 0.65, 0.95)];
+  if (call.phrase === 'match') return [P('Game shot!', 0.72, 1.12, 300), P('And the match!', 0.6, 0.95, 200), name ? P(name + '!', 0.8, 1.05) : null].filter(Boolean);
+  if (call.phrase === 'bust') return [P('No score.', 0.75, 0.85)];
+  if (call.score === 180) return [P('One hundred', 0.62, 0.92, 120), P('and eighty!', 0.42, 1.25)];
+  if (call.score === 0) return [P('No score.', 0.75, 0.85)];
+  if (call.score != null && call.score >= 100) {
+    const r = call.score % 100;
+    return r ? [P('One hundred', 0.75, 0.95, 60), P('and ' + enWords(r) + '!', 0.62, 1.12)] : [P('One hundred!', 0.62, 1.1)];
+  }
+  if (call.score != null && call.score >= 60) return [P(enWords(call.score) + '!', 0.75, 1.03)];
+  return null;
+}
+
+async function speakParts(parts, c) {
+  for (const p of parts) {
+    await speakTts(p.t, { ...c, pitch: c.pitch * p.pitch }, { rate: p.rate });
+    if (p.pause) await new Promise((r) => setTimeout(r, p.pause));
+  }
+}
+
 async function run(item) {
   const c = callerById(item.caller);
   if (c.id === 'off') return;
+  if (c.own) {
+    const V = await import('./voice.js');
+    const keys = await V.clipsFor(c.voiceId, item.call);
+    if (keys && await V.playKeys(keys, settings.volume)) return;
+    // Fallback: passender TTS-Caller in derselben Sprache
+    const fb = callerById(c.lang.startsWith('en') ? 'showman' : 'kommentator');
+    const parts = fb.tv ? tvParts(item.call, item.ctx) : null;
+    if (parts) { await speakParts(parts, fb); return; }
+    await speakTts(item.call.require != null ? requireText(item.ctx.name, item.call.require, fb.id) : textFor(item.call, item.ctx, fb.id), fb);
+    return;
+  }
+  if (c.tv) {
+    const parts = tvParts(item.call, item.ctx);
+    if (parts) { await speakParts(parts, c); return; }
+  }
   if (c.id === 'custom') {
     const clips = await packClips(item.call, item.ctx);
     if (clips) { for (const b of clips) await playBlob(b); return; }
+    const parts = tvParts(item.call, item.ctx);
+    if (parts) { await speakParts(parts, callerById('showman')); return; }
   }
   const text = item.call.require != null ? requireText(item.ctx.name, item.call.require, c.id) : textFor(item.call, item.ctx, c.id);
   const slow = item.call.score === 180 ? 0.75 : 1;
