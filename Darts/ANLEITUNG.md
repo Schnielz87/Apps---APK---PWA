@@ -53,6 +53,10 @@ Installieren-Symbol (Bildschirm mit Pfeil) klicken. Mit Tastatur: Punktzahl tipp
 
 - **Gegen einen Freund:** Startseite → **„🌐 Online spielen“** → Spiel wählen → **„Raum erstellen“** → **„Einladung senden“** (z. B. per WhatsApp).
   Der Freund tippt auf den Link oder gibt in der App unter *Online spielen* den **5-stelligen Code** ein → **Beitreten**. Das Spiel startet automatisch.
+- **Freundesliste:** *Online spielen → ⭐ Freunde* → **„Freundes-Link teilen“** (oder den 8-stelligen Freundes-Code des anderen eingeben → „Hinzufügen“).
+  Ihr steht dann gegenseitig in der Liste: 🟢 = online, 🟡 = spielt gerade, ⚪ = offline. Mit **„🎯 Einladen“** schickst du eine Spielanfrage,
+  der Freund bekommt sofort „… fordert dich heraus! – Annehmen / Ablehnen“. Online sichtbar ist man, solange die App geöffnet ist
+  (abschaltbar unter *Mehr → Spiel → Für Freunde online sichtbar*).
 - **Gegen alle:** *Online spielen → Gegen alle* → Spielart wählen → **„Gegner suchen“**. Sobald jemand dieselbe Spielart sucht, geht es los.
 - Jeder wirft an seiner eigenen Scheibe und gibt seine Würfe selbst ein – der Gegner sieht alles live. Danach: **Revanche** (der Verlierer beginnt).
 - Bricht die Verbindung kurz ab, verbindet sich die App selbst neu und gleicht den Spielstand ab.

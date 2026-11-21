@@ -12,6 +12,7 @@ import { initUpdates, onUpdate, checkNow, installNow, setAuto, APP_VERSION, upda
 import { nativeBridge, isApk, onNative } from './native.js';
 import { AutoScore, CAL_NAMES } from './cam.js';
 import { OnlineSession, seekOpponent, LOBBY_MODES, cleanCode } from './online.js';
+import { Presence, myCode, prettyCode, friends, addFriend, removeFriend, cleanFriendCode } from './friends.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -209,7 +210,7 @@ function viewHome() {
     <div class="xptext">${L.into} / ${L.need} XP bis Level ${L.level + 1}</div>
   </section>
   ${running ? `<div class="card resume" data-act="resume" role="button"><span class="big">▶</span><div class="grow"><b>Spiel fortsetzen</b><small>${esc(gameById(running.gameId)?.meta.name || '')} · ${esc(running.players.map((p) => p.name).join(' vs. '))}</small></div><button class="resume-x" data-act="discardRun" title="Spiel beenden" aria-label="Spiel beenden">✕</button></div>` : ''}
-  <button class="card online-cta" data-go="online"><span class="globe">🌐</span><div class="grow"><b>Online spielen</b><small>Gegen Freunde per Code – oder gegen alle, die gerade spielen</small></div><span class="chev">›</span></button>
+  <button class="card online-cta" data-go="online"><span class="globe">🌐</span><div class="grow"><b>Online spielen</b><small>${friendsOnlineText() || 'Gegen Freunde per Code – oder gegen alle, die gerade spielen'}</small></div><span class="chev">›</span></button>
   <section class="card daily ${done ? 'done' : ''}">
     <div class="row between"><h3>☀️ Tages-Challenge</h3><span class="pill">${done ? '✓ geschafft' : '+' + ch.xp + ' XP'}</span></div>
     <p>${esc(ch.text)}</p>
@@ -272,12 +273,114 @@ function tilesEditor() {
 }
 function setTiles(ids) { S.homeTiles = ids.slice(0, 12); saveSettings(); }
 
+// ================================================================== Freunde
+let presence = null;
+function startPresence() {
+  if (presence || S.friendsVisible === false) return;
+  presence = new Presence(() => ({ name: activeProfile().name, playing: ui.view === 'play' && !!ui.game && !ui.game.s.over }));
+  presence.on('status', (code, st) => {
+    const el = document.getElementById('fr-' + code);
+    if (el) { el.className = 'frdot ' + st; const b = document.getElementById('fri-' + code); if (b) b.disabled = st !== 'online'; const t = document.getElementById('frs-' + code); if (t) t.textContent = FR_TEXT[st] || ''; }
+    if (ui.view === 'home') { const h = document.querySelector('.online-cta small'); if (h && friendsOnlineText()) h.textContent = friendsOnlineText(); }
+  });
+  presence.on('ready', () => { if (ui.view === 'online' || ui.view === 'home') presence.checkAll(); });
+  presence.on('friendAdd', (from) => {
+    const r = addFriend(from.code, from.name);
+    if (r === true) { toast(`⭐ <b>${esc(from.name)}</b> hat dich als Freund hinzugefügt`, 'gold'); sfx.levelUp(); }
+    presence.state[from.code] = 'online';
+    if (ui.view === 'online') render();
+  });
+  presence.on('invite', (m, reply) => {
+    addFriend(m.from.code, m.from.name);
+    sfx.fanfare(); buzz([100, 60, 100]);
+    let answered = false;
+    const answer = (ok) => { if (answered) return; answered = true; reply(ok); closeModal(); if (ok) onlineJoin(m.room); };
+    ui.inviteAnswer = answer;
+    modal(`<div class="invite"><div class="radar small"><i></i><i></i><span>🎯</span></div>
+      <h3>${esc(m.from.name)} fordert dich heraus!</h3><p>${esc(m.game || 'Darts')} · online</p>
+      <div class="row gap"><button class="btn grow" data-act="invNo">Ablehnen</button><button class="btn primary grow big" data-act="invYes">Annehmen 🎯</button></div></div>`);
+    setTimeout(() => answer(false), 40000);
+  });
+  presence.start().catch((e) => logError('Freunde', e));
+  setInterval(() => { if (presence && (ui.view === 'online' || ui.view === 'home') && !document.hidden) presence.checkAll(); }, 30000);
+}
+const FR_TEXT = { online: 'online', playing: 'spielt gerade', offline: 'offline', checking: 'prüfe …' };
+function friendsOnlineText() {
+  if (!presence) return '';
+  const n = friends().filter((f) => presence.state[f.code] === 'online' || presence.state[f.code] === 'playing').length;
+  return n ? `🟢 ${n} ${n === 1 ? 'Freund' : 'Freunde'} online` : '';
+}
+
+function friendsCard() {
+  const list = friends();
+  const st = (c) => (presence && presence.state[c]) || (presence ? 'checking' : 'offline');
+  return `<section class="card friends"><div class="row between"><h3>⭐ Freunde</h3><button class="btn small ghost" data-act="frRefresh">↻</button></div>
+    ${list.length ? list.map((f) => `<div class="prow frow"><span class="frdot ${st(f.code)}" id="fr-${f.code}"></span><div class="grow"><b>${esc(f.name)}</b><small id="frs-${f.code}">${FR_TEXT[st(f.code)] || ''}</small></div>
+      <button class="btn small primary" id="fri-${f.code}" data-act="frInvite" data-code="${f.code}" ${st(f.code) === 'online' ? '' : 'disabled'}>🎯 Einladen</button>
+      <button class="icon" data-act="frDel" data-code="${f.code}" title="Entfernen">✕</button></div>`).join('')
+      : '<p class="muted small">Noch keine Freunde. Teile deinen Freundes-Link (z. B. mit Louis) oder gib seinen Code ein.</p>'}
+    <div class="frme"><small>Dein Freundes-Code</small><b>${prettyCode(myCode())}</b><button class="btn small" data-act="frShare">📤 Freundes-Link teilen</button></div>
+    <div class="row gap"><input id="frCode" class="codein sm" maxlength="9" placeholder="CODE" autocapitalize="characters" autocomplete="off"><button class="btn" data-act="frAdd">＋ Hinzufügen</button></div>
+    ${S.friendsVisible === false ? '<p class="muted small">⚠️ Du bist für Freunde unsichtbar (Mehr → Spiel).</p>' : ''}</section>`;
+}
+
+function inviteFriend(code) {
+  const f = friends().find((x) => x.code === code);
+  if (!f) return;
+  modal(`<h3>🎯 ${esc(f.name)} herausfordern</h3><p class="muted small">Welches Spiel?</p>
+    <div class="glist">${FRIEND_MODES.map((m) => `<button class="gcard" data-act="frInviteGo" data-code="${code}" data-mode="${m.id}"><span class="gi">${gameById(m.game).meta.icon}</span><div><b>${esc(m.name)}</b></div></button>`).join('')}</div>
+    <button class="btn ghost wide" data-act="close">Abbrechen</button>`);
+}
+
+async function inviteFriendGo(code, modeId) {
+  const f = friends().find((x) => x.code === code);
+  const mode = FRIEND_MODES.find((m) => m.id === modeId) || FRIEND_MODES[0];
+  closeModal();
+  ui.onl = { ...(ui.onl || {}), mode: mode.id };
+  const room = await onlineHost();
+  if (!room) return;
+  onlStatus(`Anfrage an ${f.name} gesendet – warte auf Antwort …`);
+  const r = await presence.invite(code, { from: { code: myCode(), name: activeProfile().name }, room, game: mode.name });
+  if (!ui.online || ui.online.opp) return; // schon verbunden → läuft
+  if (!r.ok) {
+    toast(r.why === 'playing' ? `${esc(f.name)} spielt gerade` : r.why === 'offline' ? `${esc(f.name)} ist nicht erreichbar` : `${esc(f.name)} hat abgelehnt`, 'warn');
+    onlineCancel();
+  } else onlStatus(`${f.name} hat angenommen – verbinde …`);
+}
+
+function shareFriendLink() {
+  const name = activeProfile().name;
+  const url = `https://schnielz87.github.io/Apps---APK---PWA/darts/#friend=${myCode()}&n=${encodeURIComponent(name)}`;
+  const text = `🎯 Füge mich in Darts Arena als Freund hinzu, dann können wir online gegeneinander spielen!\n${url}\n(Oder in der App: Online spielen → Freundes-Code ${prettyCode(myCode())} eingeben)`;
+  const nb = nativeBridge();
+  if (nb && nb.share) { nb.share(text); return; }
+  if (navigator.share) { navigator.share({ title: 'Darts Arena', text }).catch(() => {}); return; }
+  (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast('Freundes-Link kopiert'), () => toast('Dein Code: ' + prettyCode(myCode())));
+}
+
+async function addFriendByCode(code, name) {
+  code = cleanFriendCode(code);
+  if (code.length !== 8) { toast('Der Freundes-Code hat 8 Zeichen', 'warn'); return; }
+  if (code === myCode()) { toast('Das ist dein eigener Code 😉', 'warn'); return; }
+  const r = addFriend(code, name || 'Freund');
+  if (r === 'known') toast('Ist schon in deiner Freundesliste');
+  else { toast('⭐ Freund hinzugefügt'); sfx.levelUp(); }
+  if (ui.view === 'online') render();
+  if (presence) {
+    const a = await presence.announceFriend(code, { name: activeProfile().name });
+    if (a.reply && a.reply.name) { addFriend(code, a.reply.name); presence.state[code] = 'online'; }
+    else presence.state[code] = 'offline';
+    if (ui.view === 'online') render();
+  }
+}
+
 // ================================================================== Online
 const FRIEND_MODES = [...LOBBY_MODES, { id: 'elim', name: 'Elimination 301', game: 'elimination', cfg: { target: 301, out: 'single' } }];
 const onlineMe = () => { const p = activeProfile(); return { name: p.name, emoji: p.emoji, color: p.color, pid: p.id }; };
 
 function viewOnline() {
   ui.onl = ui.onl || { stage: 'menu', mode: 'x01-501' };
+  if (presence && presence.ready && ui.onl.stage === 'menu' && Date.now() - (ui.lastFrCheck || 0) > 10000) { ui.lastFrCheck = Date.now(); setTimeout(() => presence.checkAll(), 50); }
   const o = ui.onl;
   const head = `<div class="setup-head"><button class="back" data-act="onlCancel">‹</button><span class="gi">🌐</span><div><h2>Online spielen</h2><small>Direkt von Handy zu Handy – mit Caller, Statistik & Revanche</small></div></div>`;
   const modeSeg = (list) => `<div class="seg">${list.map((m) => `<button class="${o.mode === m.id ? 'on' : ''}" data-act="onlMode" data-id="${m.id}">${esc(m.name)}</button>`).join('')}</div>`;
@@ -300,6 +403,7 @@ function viewOnline() {
       <button class="btn ghost wide" data-act="onlCancel">Abbrechen</button></section>`;
   }
   return `${head}
+  ${friendsCard()}
   <section class="card"><h3>👥 Gegen Freunde</h3><p class="muted small">Raum erstellen und den Code schicken – oder den Code deines Freundes eingeben.</p>
     <div class="opt"><label>Spiel</label>${modeSeg(FRIEND_MODES)}</div>
     <button class="btn primary big wide" data-act="onlHost">➕ Raum erstellen</button>
@@ -344,11 +448,13 @@ async function onlineHost() {
   try {
     const code = await sess.host();
     ui.onl.code = code; ui.onl.status = 'Warte auf Gegner …';
-    if (ui.view === 'online') render();
+    if (ui.view === 'online') render(); else go('online');
+    return code;
   } catch (e) {
     logError('Online', e);
     ui.onl.status = 'Raum konnte nicht erstellt werden – Internet prüfen.';
     if (ui.view === 'online') render();
+    return null;
   }
 }
 
@@ -1002,6 +1108,8 @@ function tabSpiel() {
     <div class="opt"><label>Standard-Eingabe</label><div class="seg">${[['segments', 'Felder'], ['keypad', 'Summe'], ['board', 'Scheibe']].concat(S.autoscore ? [['camera', 'Kamera']] : []).map(([v, l]) => `<button class="${S.input === v ? 'on' : ''}" data-act="setv" data-k="input" data-v="${v}">${l}</button>`).join('')}</div></div>
     ${tog('showHints', 'Checkout-Wege & Ziele anzeigen')}
     ${tog('keepAwake', 'Bildschirm anlassen', 'Während der App-Nutzung nicht ausschalten')}</section>
+  <section class="card"><h3>⭐ Freunde</h3>
+    ${tog('friendsVisible', 'Für Freunde online sichtbar', 'Freunde sehen, wenn du die App offen hast, und können dich zu einem Spiel einladen.')}</section>
   <section class="card"><h3>🤖 CPU</h3>
     <div class="opt"><label>CPU-Tempo</label><div class="seg">${['Gemütlich', 'Normal', 'Schnell'].map((l, i) => `<button class="${S.cpuSpeed === i ? 'on' : ''}" data-act="setv" data-k="cpuSpeed" data-v="${i}" data-num="1">${l}</button>`).join('')}</div></div></section>
   <section class="card"><h3>📷 Kamera-Autoscore <span class="pill gold">Beta</span></h3>
@@ -1307,6 +1415,14 @@ function onClick(e) {
     case 'voiceNew': newVoiceModal(); break;
     case 'onlMode': ui.onl.mode = el.dataset.id; ui.justSel = `[data-act="onlMode"][data-id="${el.dataset.id}"]`; render(); break;
     case 'onlHost': onlineHost(); break;
+    case 'frRefresh': if (presence) { presence.checkAll(); toast('Prüfe, wer online ist …'); } else startPresence(); break;
+    case 'frInvite': inviteFriend(el.dataset.code); break;
+    case 'frInviteGo': inviteFriendGo(el.dataset.code, el.dataset.mode); break;
+    case 'frDel': { const f = friends().find((x) => x.code === el.dataset.code); if (f && confirm(`${f.name} aus der Freundesliste entfernen?`)) { removeFriend(f.code); render(); } break; }
+    case 'frShare': shareFriendLink(); break;
+    case 'frAdd': addFriendByCode($('#frCode') && $('#frCode').value); break;
+    case 'invYes': if (ui.inviteAnswer) ui.inviteAnswer(true); break;
+    case 'invNo': if (ui.inviteAnswer) ui.inviteAnswer(false); break;
     case 'onlJoin': { const c = cleanCode($('#onlCode') && $('#onlCode').value); if (c.length < 5) { toast('Bitte den 5-stelligen Code eingeben', 'warn'); break; } onlineJoin(c); break; }
     case 'onlSeek': onlineSeek(); break;
     case 'onlCancel': onlineCancel(); break;
@@ -1435,6 +1551,7 @@ document.addEventListener('change', (e) => {
     S[t.dataset.set] = t.checked; saveSettings();
     if (t.dataset.set === 'autoUpdate') setAuto(t.checked);
     if (t.dataset.set === 'music') musicWanted(ui.view !== 'play');
+    if (t.dataset.set === 'friendsVisible') { if (t.checked) startPresence(); else if (presence) { presence.stop(); presence = null; } }
   }
   if (t.dataset.cpulvl != null && ui.setup) {
     const p = ui.setup.players[+t.dataset.cpulvl];
@@ -1523,7 +1640,10 @@ async function boot() {
   log('App', `Start ${APP_VERSION.version} · ${isApk() ? 'APK' : 'PWA'} · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 120)}`);
   let start = (location.hash || '').slice(1);
   const jm = /^join=([A-Za-z0-9]{5})/.exec(start);
+  const fm = /^friend=([A-Za-z0-9]{8})(?:&n=([^&]*))?/.exec(start);
+  startPresence();
   if (jm) { go('online'); setTimeout(() => onlineJoin(cleanCode(jm[1])), 400); }
+  else if (fm) { go('online'); setTimeout(() => addFriendByCode(fm[1], fm[2] ? decodeURIComponent(fm[2]) : 'Freund'), 1500); history.replaceState(null, '', '#online'); }
   else {
     if (!['home', 'games', 'stats', 'awards', 'more', 'online'].includes(start)) start = 'home';
     go(start);

@@ -22,6 +22,7 @@ Sprachausgabe und Selbst-Update).
 - **🌐 Online-Modus:** gegen Freunde per Raum-Code/Einladungslink oder „gegen alle“ (automatische Gegnersuche je Spielart).
   Spiel direkt von Gerät zu Gerät (WebRTC, `web/js/online.js`, PeerJS – MIT, liegt in `web/js/vendor/`), inkl. Revanche,
   Wiederverbinden und Abgleich nach Verbindungsabbruch. Kein Konto, kein eigener Server.
+- **⭐ Freundesliste:** Freundes-Code/-Link, Online-Status (online/spielt/offline) und Spielanfragen mit Annehmen/Ablehnen (`web/js/friends.js`).
 - **CPU-Gegner in 10 Stufen** (Ø ca. 25 bis 115) – echtes Wurfmodell auf der Scheibe, kalibriert per Simulation
   (`tools/kalibrieren.mjs`), spielt Checkout-Wege wie ein Profi.
 - **Caller:** The Showman (englisch, im Stil der TV-Referees), Der Kommentator, Die Schiedsrichterin, Lady Oche,
