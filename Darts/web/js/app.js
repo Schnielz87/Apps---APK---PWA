@@ -1242,7 +1242,6 @@ async function boot() {
     if (ui.view === 'more') render();
     if (u.available && !ui.updToasted) { ui.updToasted = true; toast(`⬆️ Neue Version verfügbar – <u data-act="update">jetzt aktualisieren</u>`, 'gold'); }
   });
-  log('App', `Start ${APP_VERSION.version} · ${isApk() ? 'APK' : 'PWA'} · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 120)}`);
   onNative((type, d) => {
     if (type === 'log') log(d && d.area || 'Android', d && d.msg || d, d && d.level || 'info');
     if (type === 'updateStatus' && d && d.text) log('Update', d.text);
@@ -1261,6 +1260,7 @@ async function boot() {
     }
   });
   await initUpdates({ auto: S.autoUpdate }).catch(() => {});
+  log('App', `Start ${APP_VERSION.version} · ${isApk() ? 'APK' : 'PWA'} · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 120)}`);
   let start = (location.hash || '').slice(1);
   if (!['home', 'games', 'stats', 'awards', 'more'].includes(start)) start = 'home';
   go(start);
