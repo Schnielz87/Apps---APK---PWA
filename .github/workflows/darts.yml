@@ -101,8 +101,8 @@ jobs:
       - name: PWA auf GitHub Pages veröffentlichen (Branch gh-pages, Ordner darts/)
         run: |
           set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           rm -rf "$RUNNER_TEMP/pages"
           if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
             git clone --depth 1 --branch gh-pages "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$RUNNER_TEMP/pages"

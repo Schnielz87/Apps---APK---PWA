@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS = {
   caller: 'showman', callerVolume: 0.9, callNames: true, callRest: true,
   sfx: true, sfxVolume: 0.7, vibrate: true, input: 'keypad', cpuSpeed: 1, showHints: true,
   music: true, musicVolume: 0.25, musicSource: 'builtin', musicName: '',
-  autoUpdate: true, keepAwake: true, confirmVisit: false, theme: 'dark',
+  autoscore: false, autoUpdate: true, keepAwake: true, confirmVisit: false, theme: 'dark',
 };
 
 export const store = {

@@ -9,6 +9,7 @@ import { levelFor, rankFor, ACHIEVEMENTS, statsFor, dailyChallenge, recordGame, 
 import { RULES, TIPS } from './rules.js';
 import { initUpdates, onUpdate, checkNow, installNow, setAuto, APP_VERSION, updateState } from './update.js';
 import { nativeBridge, isApk, onNative } from './native.js';
+import { AutoScore, CAL_NAMES } from './cam.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -56,7 +57,7 @@ function shell() {
 }
 
 function go(view, opts = {}) {
-  if (ui.view === 'play' && view !== 'play') stopCpu();
+  if (ui.view === 'play' && view !== 'play') { stopCpu(); if (ui.cam) { ui.cam.stop(); } }
   ui.enter = ui.view !== view;
   ui.view = view;
   Object.assign(ui, opts);
@@ -104,7 +105,10 @@ function modal(html, cls = '') {
   m.innerHTML = `<div class="sheet">${html}</div>`;
   m.onclick = (e) => { if (e.target === m) closeModal(); };
 }
-function closeModal() { const m = $('#modal'); m.className = 'hidden'; m.innerHTML = ''; }
+function closeModal() {
+  if (ui.cam && ui.cam.calibrating) { ui.cam.endCalibration(); setTimeout(render, 0); }
+  const m = $('#modal'); m.className = 'hidden'; m.innerHTML = '';
+}
 
 function confetti(n = 90) {
   const fx = $('#fx');
@@ -340,8 +344,9 @@ function viewPlay() {
 }
 
 function inputArea(canKeypad) {
-  const modes = [canKeypad && ['keypad', '⌨️ Summe'], ['segments', '🔢 Felder'], ['board', '🎯 Scheibe']].filter(Boolean);
+  const modes = [canKeypad && ['keypad', '⌨️ Summe'], ['segments', '🔢 Felder'], ['board', '🎯 Scheibe'], S.autoscore && ['camera', '📷 Kamera']].filter(Boolean);
   let mode = ui.input;
+  if (mode === 'camera' && !S.autoscore) mode = 'segments';
   if (mode === 'keypad' && !canKeypad) mode = 'segments';
   if (ui.game.s.turn.length && mode === 'keypad') mode = 'segments';
   const tabs = `<div class="seg tabs">${modes.map(([m, l]) => `<button class="${m === mode ? 'on' : ''}" data-act="inmode" data-m="${m}">${l}</button>`).join('')}</div>`;
@@ -354,6 +359,12 @@ function inputArea(canKeypad) {
       <button data-act="key" data-v="del" class="k2">⌫</button><button data-act="key" data-v="0">0</button><button data-act="key" data-v="ok" class="ok">OK</button></div>
       <button class="btn ghost wide small" data-act="qs" data-v="0">Kein Score (0)</button></div>`;
   }
+  if (mode === 'camera') {
+    return `${tabs}<div id="camSlot" class="camslot"></div>
+      <div class="camstatus" id="camStatus">${esc(ui.camStatus || 'Kamera startet …')}</div>
+      <div class="row gap"><button class="btn grow small" data-act="camCal">🎯 Kalibrieren</button><button class="btn grow small" data-act="camRelearn">↻ Neu einlernen</button><button class="btn small" data-act="dart" data-s="0" data-m="0">Miss</button></div>
+      <p class="muted small center">Falsch erkannt? „↶ Zurück“ und per „Felder“ eingeben. Daneben-Würfe mit „Miss“ eintragen.</p>`;
+  }
   if (mode === 'board') {
     return `${tabs}<div class="tapboard" id="tapBoard">${boardSvg({ id: 'inBoard' })}</div>
       <div class="row gap center"><button class="btn" data-act="dart" data-s="0" data-m="0">Miss</button><button class="btn" data-act="dart" data-s="25" data-m="1">25</button><button class="btn" data-act="dart" data-s="25" data-m="2">Bull</button></div>`;
@@ -365,7 +376,28 @@ function inputArea(canKeypad) {
     <div class="nums">${nums.join('')}<button data-act="dart" data-s="25" data-m="1" class="bull">25</button><button data-act="dart" data-s="25" data-m="2" class="bull">Bull</button><button data-act="dart" data-s="0" data-m="0" class="miss">Miss</button><button data-act="endturn" class="miss">⏭ Rest 0</button></div></div>`;
 }
 
+function camera() {
+  if (!ui.cam) {
+    ui.cam = new AutoScore({
+      onDart: (d, pos) => {
+        if (ui.view !== 'play' || ui.input !== 'camera' || !ui.game || curPlayer().cpu || ui.game.s.over) return;
+        toast(`📷 ${label(d)} erkannt`);
+        humanDart(d, pos);
+      },
+      onStatus: (t) => { ui.camStatus = t; const el = $('#camStatus'); if (el) el.textContent = t; },
+    });
+  }
+  return ui.cam;
+}
+
 function afterPlayRender() {
+  const slot = $('#camSlot');
+  if (slot) {
+    const c = camera();
+    c.paused = false;
+    c.attach(slot);
+    c.start().then((ok) => { if (ok && !c.calibrated) calibrateCam(); });
+  } else if (ui.cam) ui.cam.paused = true;
   const b = $('#inBoard');
   if (b) {
     b.addEventListener('click', (e) => {
@@ -378,6 +410,18 @@ function afterPlayRender() {
     });
     ui.game.s.turn.forEach((t) => { if (t.pos) markDart(b, t.pos.x, t.pos.y); });
   }
+}
+
+function calibrateCam() {
+  const c = camera();
+  modal(`<h3>🎯 Kamera ausrichten</h3>
+    <p class="muted small">1. Handy fest auf Stativ/Halterung, ca. 1–2 m vor der Scheibe, ganze Scheibe im Bild (am besten leicht seitlich oder von unten, nicht im Wurfweg).<br>
+    2. Ziehe die 4 roten Punkte auf den <b>äußeren Rand des Doppelrings</b>: ${CAL_NAMES.map((n, i) => `${i + 1} = ${n}`).join(', ')}.<br>
+    3. Das grüne/gelbe Gitter muss danach genau auf den Ringen liegen.</p>
+    <div id="calSlot" class="calslot"></div>
+    <button class="btn primary big wide" data-act="camCalDone">✓ Fertig</button>`, 'wide');
+  c.attach($('#calSlot'));
+  c.start().then(() => { c.startCalibration(); setTimeout(() => c.drawOverlay(), 400); });
 }
 
 function humanDart(d, pos = null) {
@@ -404,6 +448,7 @@ function handleEvent(ev) {
     if (ev.text && !ev.bust) toast(esc(ev.text));
     say(ev.call, { name: p.name });
     if (ev.require && S.callRest && !g.s.over) say({ require: ev.require.rest }, { name: g.players[ev.require.player].name });
+    if (ui.cam && ui.input === 'camera' && !p.cpu && ev.darts && ev.darts.length) ui.cam.expectPull();
   } else if (ev.text) toast(esc(ev.text));
   persist();
   if (g.s.over) { setTimeout(finishGame, ev.won || ev.shanghai ? 1600 : 900); render(); return; }
@@ -619,6 +664,7 @@ function viewMore() {
     <div class="opt"><label>Lautstärke Effekte</label><input type="range" min="0" max="1" step="0.05" value="${S.sfxVolume}" data-range="sfxVolume"></div>
     ${tog('vibrate', 'Vibration')}
     ${tog('showHints', 'Checkout-Wege & Ziele anzeigen')}
+    ${tog('autoscore', '📷 Kamera-Autoscore (Beta)', 'Handy auf Stativ vor der Scheibe – erkennt Darts automatisch. Im Spiel Eingabe „Kamera“ wählen.')}
     ${tog('keepAwake', 'Bildschirm anlassen', 'Während der App-Nutzung nicht ausschalten')}
     <div class="opt"><label>Standard-Eingabe</label><div class="seg">${[['keypad', 'Summe'], ['segments', 'Felder'], ['board', 'Scheibe']].map(([v, l]) => `<button class="${S.input === v ? 'on' : ''}" data-act="setv" data-k="input" data-v="${v}">${l}</button>`).join('')}</div></div>
     <div class="opt"><label>CPU-Tempo</label><div class="seg">${['Gemütlich', 'Normal', 'Schnell'].map((l, i) => `<button class="${S.cpuSpeed === i ? 'on' : ''}" data-act="setv" data-k="cpuSpeed" data-v="${i}" data-num="1">${l}</button>`).join('')}</div></div>
@@ -789,7 +835,7 @@ function onClick(e) {
     case 'leaveOk': closeModal(); stopCalls(); go('home'); break;
     case 'abandon': closeModal(); stopCalls(); store.clearRunning(); ui.game = null; go('home'); break;
     case 'mute': S.caller = S.caller === 'off' ? (localStorage.getItem('da.lastCaller') || 'showman') : (localStorage.setItem('da.lastCaller', S.caller), 'off'); saveSettings(); stopCalls(); render(); break;
-    case 'inmode': ui.input = el.dataset.m; if (['keypad', 'segments', 'board'].includes(ui.input)) { S.input = ui.input; saveSettings(); } render(); break;
+    case 'inmode': ui.input = el.dataset.m; if (['keypad', 'segments', 'board', 'camera'].includes(ui.input)) { S.input = ui.input; saveSettings(); } render(); break;
     case 'mult': ui.mult = ui.mult === +el.dataset.m ? 1 : +el.dataset.m; ui.justSel = `[data-act="mult"][data-m="${ui.mult}"]`; render(); break;
     case 'dart': {
       const s = +el.dataset.s;
@@ -811,6 +857,9 @@ function onClick(e) {
     case 'qs': keypadOk(+el.dataset.v); break;
     case 'finishDarts': closeModal(); submitVisit(+el.dataset.t, +el.dataset.n); break;
     case 'undo': undo(); break;
+    case 'camCal': calibrateCam(); break;
+    case 'camCalDone': if (ui.cam) ui.cam.endCalibration(); closeModal(); render(); toast('Kalibrierung gespeichert'); break;
+    case 'camRelearn': if (ui.cam) ui.cam.relearn(); break;
     case 'rematch': {
       const e = ui.lastResult.entry;
       const players = ui.setup.players.map((p) => ({ ...p }));

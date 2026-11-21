@@ -41,11 +41,19 @@ class MainActivity : ComponentActivity() {
         cb.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res.resultCode, res.data))
     }
 
-    private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+    private val devicePermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
         val req = pendingPermission ?: return@registerForActivityResult
         pendingPermission = null
-        if (ok) req.grant(req.resources) else req.deny()
+        val granted = webResources(req).filter { r -> res[androidPermission(r)] != false && hasPermission(androidPermission(r)) }
+        if (granted.isNotEmpty()) req.grant(granted.toTypedArray()) else req.deny()
     }
+
+    private fun webResources(req: PermissionRequest) = req.resources.filter {
+        it == PermissionRequest.RESOURCE_AUDIO_CAPTURE || it == PermissionRequest.RESOURCE_VIDEO_CAPTURE
+    }
+    private fun androidPermission(res: String) =
+        if (res == PermissionRequest.RESOURCE_VIDEO_CAPTURE) Manifest.permission.CAMERA else Manifest.permission.RECORD_AUDIO
+    private fun hasPermission(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
 
     private val createDoc = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val txt = pendingSave
@@ -94,13 +102,16 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun onPermissionRequest(request: PermissionRequest) {
+                // Mikrofon (eigene Caller-Ansagen) und Kamera (Autoscore) – erst nach Android-Rückfrage freigeben
                 runOnUiThread {
-                    if (PermissionRequest.RESOURCE_AUDIO_CAPTURE !in request.resources) { request.deny(); return@runOnUiThread }
-                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                        request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                    val wanted = webResources(request)
+                    if (wanted.isEmpty()) { request.deny(); return@runOnUiThread }
+                    val missing = wanted.map { androidPermission(it) }.filterNot { hasPermission(it) }
+                    if (missing.isEmpty()) {
+                        request.grant(wanted.toTypedArray())
                     } else {
                         pendingPermission = request
-                        micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        devicePermissions.launch(missing.toTypedArray())
                     }
                 }
             }

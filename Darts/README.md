@@ -6,6 +6,8 @@ Sprachausgabe und Selbst-Update).
 
 ## Installation
 
+➡️ Schritt-für-Schritt-Anleitung zum Weitergeben (inkl. iPhone): [`ANLEITUNG.md`](ANLEITUNG.md)
+
 | Gerät | So geht's |
 |---|---|
 | 📱 Android | Unter [Releases](https://github.com/Schnielz87/Apps---APK---PWA/releases) `Darts-Arena.apk` laden und installieren („Unbekannte Quellen“ erlauben). |
@@ -26,6 +28,8 @@ Sprachausgabe und Selbst-Update).
 - **Checkout-Hilfe** für jeden Rest, inklusive Bogey-Warnung.
 - **Motivation:** XP & Level mit Rängen, 29 Erfolge, Tages-Challenge, Tages-Serie, persönliche Rekorde.
 - **Statistik:** Ø 3-Dart, First 9, Checkout-Quote, 180er/140+/100+, bestes Leg, Verlauf-Diagramm, Trefferbild (Heatmap).
+- **📷 Kamera-Autoscore (Beta, zuschaltbar):** Handy auf Stativ, 4-Punkt-Kalibrierung, erkennt neue Darts per Bildvergleich
+  und trägt sie ein (Korrektur jederzeit). Alles läuft auf dem Gerät (`web/js/cam.js`).
 - **Menü-Musik** (eingebauter Loop oder eigener Song vom Gerät), Animationen, Soundeffekte, Vibration.
 - Profile für mehrere Spieler, Spiel fortsetzen nach Neustart, Sicherung/Wiederherstellung, komplett offline.
 
