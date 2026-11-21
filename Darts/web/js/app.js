@@ -1025,6 +1025,7 @@ function onClick(e) {
       break;
     }
     case 'voiceNew': newVoiceModal(); break;
+    case 'openReleases': { const nb = nativeBridge(); if (nb && nb.openUrl) nb.openUrl('https://github.com/Schnielz87/Apps---APK---PWA/releases/latest'); else window.open('https://github.com/Schnielz87/Apps---APK---PWA/releases/latest', '_blank'); break; }
     case 'tile': {
       const t = tileDefs().find((d) => d.id === el.dataset.id);
       if (!t) break;
@@ -1164,7 +1165,20 @@ async function boot() {
     if (ui.view === 'more') render();
     if (u.available && !ui.updToasted) { ui.updToasted = true; toast(`⬆️ Neue Version verfügbar – <u data-act="update">jetzt aktualisieren</u>`, 'gold'); }
   });
-  onNative((type, d) => { if (type === 'toast') toast(esc(d)); });
+  onNative((type, d) => {
+    if (type === 'toast') toast(esc(d));
+    if (type === 'updateConflict') {
+      modal(`<h3>⚠️ Einmalige Neuinstallation nötig</h3>
+        <p>Version ${esc(d && d.tag)} ist mit dem neuen, festen App-Schlüssel signiert. Android erlaubt den Wechsel nur per Neuinstallation – danach funktionieren alle Updates wieder automatisch.</p>
+        <p class="pre">1. Unten „Daten sichern“ antippen (Profile, Statistik, Erfolge).
+2. Darts Arena deinstallieren (App-Symbol lange drücken → Deinstallieren).
+3. Neue App laden: github.com/Schnielz87/Apps---APK---PWA/releases/latest → Darts-Arena.apk
+4. In der neuen App: Mehr → System → Wiederherstellen.</p>
+        <button class="btn primary wide" data-act="export">💾 Daten sichern</button>
+        <button class="btn wide" data-act="openReleases">⬇ Download-Seite öffnen</button>
+        <button class="btn ghost wide" data-act="close">Später</button>`);
+    }
+  });
   await initUpdates({ auto: S.autoUpdate }).catch(() => {});
   let start = (location.hash || '').slice(1);
   if (!['home', 'games', 'stats', 'awards', 'more'].includes(start)) start = 'home';

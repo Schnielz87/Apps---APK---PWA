@@ -53,7 +53,8 @@ jobs:
             echo "SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
             echo "Eigener Signatur-Schlüssel wird verwendet."
           else
-            echo "::warning::Kein Signatur-Secret gesetzt – APK wird mit wechselndem Debug-Schlüssel signiert, Updates klappen dann nur per Neuinstallation."
+            echo "::error::Kein Signatur-Secret gesetzt – APK wird mit wechselndem Debug-Schlüssel signiert, Updates klappen dann NICHT (Settings → Secrets → SIGNING_*)."
+            exit 1
           fi
 
       - name: APK + App-Bundle bauen

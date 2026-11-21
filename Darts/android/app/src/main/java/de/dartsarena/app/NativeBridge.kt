@@ -66,6 +66,13 @@ class NativeBridge(private val act: MainActivity) {
     @JavascriptInterface
     fun saveFile(name: String, text: String) = act.saveText(name, text)
 
+    /** Nur die eigene Download-Seite im Browser öffnen. */
+    @JavascriptInterface
+    fun openUrl(url: String) {
+        if (!url.startsWith("https://github.com/Schnielz87/Apps---APK---PWA")) return
+        act.runOnUiThread { runCatching { act.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) } }
+    }
+
     // ---------------------------------------------------------------- Updates (nur GitHub-APK)
     @JavascriptInterface
     fun startAutoCheck() { if (!BuildConfig.PLAY_STORE) act.updates.startAutoCheck() }

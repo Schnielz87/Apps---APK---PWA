@@ -2,6 +2,7 @@ package de.dartsarena.app
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -149,6 +150,13 @@ class UpdateManager(private val act: MainActivity) {
                 } finally { conn.disconnect() }
                 if (!tmp.renameTo(file)) throw IOException("Datei konnte nicht gespeichert werden")
                 act.emit("updateProgress", JSONObject().put("p", JSONObject.NULL))
+                // Anderer Signatur-Schlüssel? Dann würde Android nur „App nicht installiert“ melden – lieber erklären.
+                if (!sameSigner(file)) {
+                    file.delete()
+                    status("Update mit anderem Schlüssel signiert – einmal neu installieren nötig")
+                    act.emit("updateConflict", JSONObject().put("tag", r.tag.removePrefix(TAG_PREFIX)))
+                    return@execute
+                }
                 status("Installation wird geöffnet …")
                 val uri = FileProvider.getUriForFile(act, "${act.packageName}.updates", file)
                 act.runOnUiThread {
@@ -164,6 +172,22 @@ class UpdateManager(private val act: MainActivity) {
             } finally { busy = false }
         }
     }
+
+    /** Ist die geladene APK mit demselben Schlüssel signiert wie die installierte App? (Bei Unklarheit: ja) */
+    @Suppress("DEPRECATION")
+    private fun sameSigner(file: File): Boolean = runCatching {
+        val pm = act.packageManager
+        if (Build.VERSION.SDK_INT >= 28) {
+            val flag = PackageManager.GET_SIGNING_CERTIFICATES
+            val neu = pm.getPackageArchiveInfo(file.path, flag)?.signingInfo?.apkContentsSigners ?: return@runCatching true
+            val alt = pm.getPackageInfo(act.packageName, flag).signingInfo?.apkContentsSigners ?: return@runCatching true
+            neu.map { it.toCharsString() }.toSet() == alt.map { it.toCharsString() }.toSet()
+        } else {
+            val neu = pm.getPackageArchiveInfo(file.path, PackageManager.GET_SIGNATURES)?.signatures ?: return@runCatching true
+            val alt = pm.getPackageInfo(act.packageName, PackageManager.GET_SIGNATURES).signatures ?: return@runCatching true
+            neu.map { it.toCharsString() }.toSet() == alt.map { it.toCharsString() }.toSet()
+        }
+    }.getOrDefault(true)
 
     private fun open(url: String): HttpURLConnection {
         val c = URL(url).openConnection() as HttpURLConnection
