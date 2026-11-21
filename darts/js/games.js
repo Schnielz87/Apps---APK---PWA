@@ -102,7 +102,7 @@ export class X01 extends Base {
     id: 'x01', name: 'X01', icon: '🎯', cat: 'match', min: 1, max: 8, visit: true,
     desc: '501, 301 & Co. – der Klassiker mit Double-Out, Legs und Sets.',
     options: [
-      { key: 'start', label: 'Startpunkte', values: [101, 170, 201, 301, 501, 701, 1001], def: 501 },
+      { key: 'start', label: 'Startpunkte', values: [101, 170, 201, 301, 401, 501, 601, 701, 801, 901, 1001], def: 501 },
       { key: 'in', label: 'Check-In', values: ['straight', 'double', 'master'], names: ['Straight', 'Double-In', 'Master-In'], def: 'straight' },
       { key: 'out', label: 'Check-Out', values: ['double', 'single', 'master'], names: ['Double-Out', 'Single-Out', 'Master-Out'], def: 'double' },
       { key: 'legs', label: 'Legs (First to)', values: [1, 2, 3, 4, 5, 6, 7], def: 1 },

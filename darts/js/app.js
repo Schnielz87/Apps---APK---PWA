@@ -1,7 +1,7 @@
 // Darts Arena – Oberfläche (Single-Page-App ohne Framework).
 import { boardSvg, markDart, clearMarks, pointIn, throwAt, CPU_LEVELS, label, value, dart, MISS } from './board.js';
 import { GAMES, gameById, IMPOSSIBLE } from './games.js';
-import { CALLERS, say, stopCalls, demo, setCallerSettings, callerById, packKeys, packSave, packDelete, packClearCalls, keyFromFilename, PACK_KEYS, musicFileSave, musicFileDelete } from './caller.js';
+import { allCallers, say, stopCalls, demo, setCallerSettings, callerById, packKeys, packSave, packClearCalls, keyFromFilename, musicFileSave, musicFileDelete } from './caller.js';
 import { setMusicSettings, musicWanted } from './music.js';
 import { sfx, setSfx, buzz, setVibrate, unlockAudio } from './audio.js';
 import { store } from './store.js';
@@ -57,6 +57,7 @@ function shell() {
 }
 
 function go(view, opts = {}) {
+  if (view === 'profiles' || view === 'caller') { opts.moreTab = view === 'profiles' ? 'profil' : 'caller'; view = 'more'; }
   if (ui.view === 'play' && view !== 'play') { stopCpu(); if (ui.cam) { ui.cam.stop(); } }
   ui.enter = ui.view !== view;
   ui.view = view;
@@ -71,7 +72,7 @@ function go(view, opts = {}) {
 
 function render() {
   const v = $('#view');
-  const map = { home: viewHome, games: viewGames, setup: viewSetup, play: viewPlay, result: viewResult, stats: viewStats, awards: viewAwards, more: viewMore, profiles: viewProfiles, caller: viewCaller, help: viewHelp };
+  const map = { home: viewHome, games: viewGames, setup: viewSetup, play: viewPlay, result: viewResult, stats: viewStats, awards: viewAwards, more: viewMore, help: viewHelp };
   v.innerHTML = (map[ui.view] || viewHome)();
   v.classList.remove('enter');
   if (ui.enter) { void v.offsetWidth; v.classList.add('enter'); ui.enter = false; }
@@ -107,6 +108,7 @@ function modal(html, cls = '') {
 }
 function closeModal() {
   if (ui.cam && ui.cam.calibrating) { ui.cam.endCalibration(); setTimeout(render, 0); }
+  if (ui.wiz) { ui.wiz.running = false; if (ui.wiz.abort) ui.wiz.abort.abort(); ui.wiz = null; if (ui.view === 'more') setTimeout(render, 0); }
   const m = $('#modal'); m.className = 'hidden'; m.innerHTML = '';
 }
 
@@ -204,11 +206,9 @@ function viewHome() {
     <p>${esc(ch.text)}</p>
     ${done ? '<small>Morgen wartet eine neue Aufgabe.</small>' : `<button class="btn primary" data-act="daily">Challenge starten</button>`}
   </section>
-  <section class="quick">
-    <button class="tile red" data-act="quick" data-g="x01" data-cpu="${lastCpu}"><span>🤖</span><b>501 gegen CPU</b><small>Stufe ${lastCpu} · ${CPU_LEVELS[lastCpu].name}</small></button>
-    <button class="tile green" data-act="quick" data-g="x01" data-cpu="0"><span>🎯</span><b>501 Solo</b><small>Schnell trainieren</small></button>
-    <button class="tile" data-act="quick" data-g="bobs27"><span>💯</span><b>Bob's 27</b><small>Doppel-Training</small></button>
-    <button class="tile" data-act="quick" data-g="atc"><span>🕐</span><b>Around the Clock</b><small>Aufwärmen</small></button>
+  <div class="row between quick-head"><h2 class="h">Schnellstart</h2><button class="btn small ghost" data-act="tilesEdit">✎ Anpassen</button></div>
+  <section class="quick">${homeTiles().map((t) => tileHtml(t, lastCpu)).join('')}
+    <button class="tile add" data-act="tilesEdit"><span>＋</span><b>Kachel hinzufügen</b><small>Jedes Spiel auf die Startseite</small></button>
   </section>
   <section class="kpis">
     <div><b>${fmt(st.avg)}</b><small>Ø 3-Dart</small></div>
@@ -219,9 +219,54 @@ function viewHome() {
   <section class="card tip"><b>💡 Tipp des Tages</b><p>${esc(tip)}</p></section>`;
 }
 
+// ================================================================== Startseiten-Kacheln (frei wählbar)
+/** Alle möglichen Kacheln: jedes Spiel, Matchspiele zusätzlich „gegen CPU“. */
+function tileDefs() {
+  const out = [];
+  for (const G of GAMES) {
+    const m = G.meta;
+    if (m.cat === 'match' && m.id !== 'killer') out.push({ id: m.id + '-cpu', g: m.id, cpu: true, icon: '🤖', name: `${m.name} gegen CPU` });
+    out.push({ id: m.id, g: m.id, cpu: false, icon: m.icon, name: m.name });
+  }
+  return out;
+}
+const DEFAULT_TILES = ['x01-cpu', 'x01', 'bobs27', 'atc'];
+function homeTiles() {
+  const defs = tileDefs();
+  const ids = Array.isArray(S.homeTiles) ? S.homeTiles : DEFAULT_TILES;
+  return ids.map((id) => defs.find((d) => d.id === id)).filter(Boolean);
+}
+function tileSub(t, lastCpu) {
+  const saved = JSON.parse(localStorage.getItem('da.setup.' + t.g) || 'null');
+  const cfg = saved && saved.cfg;
+  let txt = '';
+  if (t.g === 'x01') {
+    const c = cfg || { start: 501, in: 'straight', out: 'double', legs: 1 };
+    txt = `${c.start} · ${{ double: 'Double-Out', single: 'Single-Out', master: 'Master-Out' }[c.out]}${c.in !== 'straight' ? ' · ' + (c.in === 'double' ? 'Double-In' : 'Master-In') : ''}${c.legs > 1 ? ' · FT' + c.legs : ''}`;
+  } else txt = gameById(t.g).meta.cat === 'training' ? 'Training' : 'Match';
+  return t.cpu ? `${txt} · CPU ${lastCpu}` : txt;
+}
+function tileHtml(t, lastCpu) {
+  const cls = t.cpu ? 'red' : t.g === 'x01' ? 'green' : '';
+  const G = gameById(t.g);
+  const title = t.g === 'x01' ? (t.cpu ? 'X01 gegen CPU' : 'X01') : t.name;
+  return `<button class="tile ${cls}" data-act="tile" data-id="${t.id}"><span>${t.cpu ? '🤖' : G.meta.icon}</span><b>${esc(title)}</b><small>${esc(tileSub(t, lastCpu))}</small></button>`;
+}
+function tilesEditor() {
+  const sel = homeTiles().map((t) => t.id);
+  const defs = tileDefs();
+  modal(`<h3>✎ Startseite anpassen</h3><p class="muted small">⭐ = auf der Startseite. Mit ↑ sortieren. Ein Tipp auf eine Kachel öffnet immer erst die Spiel-Einstellungen.</p>
+    <div class="tiled">${sel.map((id, i) => { const d = defs.find((x) => x.id === id); return `<div class="trow on"><button class="star on" data-act="tileStar" data-id="${id}">★</button><span class="gi sm">${d.icon}</span><b class="grow">${esc(d.name)}</b><button class="icon" data-act="tileUp" data-id="${id}" ${i === 0 ? 'disabled' : ''}>↑</button></div>`; }).join('')}</div>
+    <h3 style="margin-top:14px">Weitere Spiele</h3>
+    <div class="tiled">${defs.filter((d) => !sel.includes(d.id)).map((d) => `<div class="trow"><button class="star" data-act="tileStar" data-id="${d.id}">☆</button><span class="gi sm">${d.icon}</span><b class="grow">${esc(d.name)}</b></div>`).join('')}</div>
+    <div class="row gap"><button class="btn ghost grow" data-act="tilesReset">Standard</button><button class="btn primary grow" data-act="close">Fertig</button></div>`);
+}
+function setTiles(ids) { S.homeTiles = ids.slice(0, 12); saveSettings(); }
+
 // ================================================================== Spieleliste
 function viewGames() {
-  const card = (G) => `<button class="gcard" data-act="setup" data-g="${G.meta.id}"><span class="gi">${G.meta.icon}</span><div><b>${esc(G.meta.name)}</b><small>${esc(G.meta.desc)}</small></div></button>`;
+  const pinned = new Set(homeTiles().map((t) => t.id));
+  const card = (G) => `<div class="gcard-wrap"><button class="gcard" data-act="setup" data-g="${G.meta.id}"><span class="gi">${G.meta.icon}</span><div><b>${esc(G.meta.name)}</b><small>${esc(G.meta.desc)}</small></div></button><button class="pin ${pinned.has(G.meta.id) ? 'on' : ''}" data-act="pin" data-id="${G.meta.id}" title="Auf die Startseite">${pinned.has(G.meta.id) ? '★' : '☆'}</button></div>`;
   return `<h2 class="h">Matchspiele</h2><div class="glist">${GAMES.filter((g) => g.meta.cat === 'match').map(card).join('')}</div>
   <h2 class="h">Training</h2><div class="glist">${GAMES.filter((g) => g.meta.cat === 'training').map(card).join('')}</div>
   <button class="btn ghost wide" data-go="help">📖 Spielregeln</button>`;
@@ -644,56 +689,93 @@ function viewAwards() {
   <section class="card">${[['Bester Match-Ø (X01)', rec.avg ? fmt(rec.avg) : '–'], ['Höchstes Finish', rec.finish || '–'], ['Schnellstes 501-Leg', rec.leg ? rec.leg + ' Darts' : '–'], ['Around the Clock', rec.atc ? rec.atc + ' Darts' : '–'], ["Bob's 27", rec.bobs ?? '–'], ['Scoring (30 Darts)', rec.scoring || '–']].map(([n, v]) => `<div class="row between line"><span>${n}</span><b>${v}</b></div>`).join('')}</section>`;
 }
 
-// ================================================================== Mehr / Einstellungen
+// ================================================================== Mehr / Einstellungen (Registerkarten)
+const MORE_TABS = [
+  { id: 'profil', icon: '👤', label: 'Profil' },
+  { id: 'caller', icon: '🎙️', label: 'Caller' },
+  { id: 'sound', icon: '🎵', label: 'Sound' },
+  { id: 'spiel', icon: '🎮', label: 'Spiel' },
+  { id: 'system', icon: '⚙️', label: 'System' },
+];
+const tog = (k, l, d = '') => `<label class="tog"><div><b>${l}</b>${d ? `<small>${d}</small>` : ''}</div><input type="checkbox" data-set="${k}" ${S[k] ? 'checked' : ''}><i></i></label>`;
+
 function viewMore() {
-  const u = updateState();
-  const c = callerById(S.caller);
-  const tog = (k, l, d = '') => `<label class="tog"><div><b>${l}</b>${d ? `<small>${d}</small>` : ''}</div><input type="checkbox" data-set="${k}" ${S[k] ? 'checked' : ''}><i></i></label>`;
-  const kind = u.kind === 'apk' ? 'Android-App (APK)' : u.kind === 'play' ? 'Google Play' : 'Web-App (PWA)';
-  return `
-  <section class="card"><h3>👥 Profile</h3><button class="prow btnrow" data-go="profiles">${avatar(activeProfile())}<div class="grow"><b>${esc(activeProfile().name)}</b><small>${store.profiles().length} Profil(e) · verwalten</small></div><span>›</span></button></section>
-  <section class="card"><h3>🎙️ Caller</h3><button class="prow btnrow" data-go="caller"><span class="ava">${c.flag || '🎙️'}</span><div class="grow"><b>${esc(c.name)}</b><small>${esc(c.desc || '')}</small></div><span>›</span></button></section>
-  <section class="card"><h3>🎵 Menü-Musik</h3>
+  const tab = ui.moreTab || 'profil';
+  const body = { profil: tabProfil, caller: tabCaller, sound: tabSound, spiel: tabSpiel, system: tabSystem }[tab]();
+  return `<div class="mtabs" style="--n:${MORE_TABS.length};--i:${MORE_TABS.findIndex((t) => t.id === tab)}">${MORE_TABS.map((t) => `<button class="${t.id === tab ? 'on' : ''}" data-act="mtab" data-t="${t.id}"><span>${t.icon}</span><small>${t.label}</small></button>`).join('')}<i class="mtab-ink"></i></div>
+  <div class="mbody ${ui.tabAnim || ''}">${body}</div>`;
+}
+
+function tabProfil() {
+  const ps = store.profiles();
+  const act = store.activeProfileId();
+  return `<section class="card"><h3>👥 Spieler-Profile</h3><p class="muted small">Das aktive Profil sammelt XP, Erfolge und die Tages-Serie.</p>
+  ${ps.map((p) => `<div class="prow line">${avatar(p, 'lg')}<div class="grow"><b>${esc(p.name)}</b><small>${p.id === act ? '✓ aktiv' : ''}</small></div>
+    ${p.id !== act ? `<button class="btn small" data-act="activate" data-id="${p.id}">Aktiv</button>` : ''}
+    <button class="icon" data-act="editP" data-id="${p.id}">✎</button>${ps.length > 1 ? `<button class="icon" data-act="delP" data-id="${p.id}">🗑</button>` : ''}</div>`).join('')}
+  <div class="row gap" style="margin-top:10px"><input id="newName" placeholder="Name für neues Profil" maxlength="20"><button class="btn primary" data-act="newProfile">Anlegen</button></div></section>`;
+}
+
+function tabCaller() {
+  setTimeout(viewCallerAsync, 0);
+  const list = allCallers();
+  return `<section class="card"><h3>Wer ruft deine Punkte aus?</h3>
+  ${list.map((c) => `<div class="prow callerrow ${S.caller === c.id ? 'sel' : ''}" data-act="pickCaller" data-id="${c.id}"><span class="ava">${c.flag}</span><div class="grow"><b>${esc(c.name)}</b><small>${esc(c.desc)}</small></div>
+    ${c.id !== 'off' ? `<button class="btn small" data-act="demo" data-id="${c.id}">▶</button>` : ''}
+    ${c.own ? `<button class="icon" data-act="voiceEdit" data-id="${c.voiceId}" title="Weiter einsprechen">🎙️</button><button class="icon" data-act="voiceDel" data-id="${c.voiceId}">🗑</button>` : ''}</div>`).join('')}</section>
+  <section class="card voicecta"><h3>🎤 Eigene Stimme einsprechen</h3>
+    <p class="muted small">Die App sagt dir jede Ansage vor, nimmt automatisch auf, schneidet zu und geht zur nächsten. Zahlen setzt sie aus Bausteinen zusammen – rund 40 kurze Aufnahmen (ca. 5 Minuten) reichen für alle Werte von 1 bis 180.</p>
+    <button class="btn primary wide" data-act="voiceNew">＋ Neue Stimme aufnehmen</button></section>
+  <section class="card"><div class="opt"><label>Lautstärke Caller</label><input type="range" min="0.1" max="1" step="0.05" value="${S.callerVolume}" data-range="callerVolume"></div>
+    ${tog('callRest', '„You require …“ ansagen', 'Rest im Checkout-Bereich ansagen')}
+    ${tog('callNames', 'Namen ansagen')}</section>
+  <section class="card"><h3>📂 Sound-Paket aus Dateien</h3>
+    <p class="muted small">Lizenzierte Caller-Dateien laden. Dateinamen: <code>180.mp3</code>, <code>60.wav</code>, <code>noscore</code>, <code>gameshot</code>, <code>leg</code>, <code>match</code>, <code>require</code>, <code>gameon</code> … Danach Caller „Eigenes Sound-Paket“ wählen.</p>
+    <div id="packInfo" class="packinfo">…</div>
+    <div class="row gap"><button class="btn grow" data-act="packImport">📂 Dateien laden</button><button class="btn ghost danger" data-act="packClear">Löschen</button></div></section>`;
+}
+
+function tabSound() {
+  return `<section class="card"><h3>🎵 Menü-Musik</h3>
     ${tog('music', 'Musik in den Menüs', 'Läuft leise bei der Spielauswahl, pausiert während des Spiels')}
     <div class="opt"><label>Lautstärke Musik</label><input type="range" min="0.05" max="1" step="0.05" value="${S.musicVolume}" data-range="musicVolume"></div>
     <div class="opt"><label>Quelle</label><div class="seg"><button class="${S.musicSource !== 'own' ? 'on' : ''}" data-act="musicSrc" data-v="builtin">Arena-Loop</button><button class="${S.musicSource === 'own' ? 'on' : ''}" data-act="musicSrc" data-v="own" ${S.musicName ? '' : 'disabled'}>${S.musicName ? esc(S.musicName.replace(/\.[^.]+$/, '').slice(0, 24)) : 'Eigener Song'}</button></div></div>
     <div class="row gap"><button class="btn grow" data-act="musicPick">📂 Eigenen Song wählen</button>${S.musicName ? '<button class="btn" data-act="musicDel">🗑</button>' : ''}</div>
-    <p class="muted small">Dein Lieblingssong (z. B. „Chase the Sun“) als MP3 vom Gerät – er bleibt nur auf diesem Gerät gespeichert.</p></section>
-  <section class="card"><h3>🔈 Ton & Bedienung</h3>
+    <p class="muted small">Dein Lieblingssong als MP3 vom Gerät – er bleibt nur auf diesem Gerät gespeichert.</p></section>
+  <section class="card"><h3>🔈 Effekte</h3>
     ${tog('sfx', 'Soundeffekte', 'Treffer, Bust, Fanfare bei 180')}
     <div class="opt"><label>Lautstärke Effekte</label><input type="range" min="0" max="1" step="0.05" value="${S.sfxVolume}" data-range="sfxVolume"></div>
-    ${tog('vibrate', 'Vibration')}
+    ${tog('vibrate', 'Vibration')}</section>`;
+}
+
+function tabSpiel() {
+  return `<section class="card"><h3>🎯 Eingabe</h3>
+    <div class="opt"><label>Standard-Eingabe</label><div class="seg">${[['keypad', 'Summe'], ['segments', 'Felder'], ['board', 'Scheibe']].concat(S.autoscore ? [['camera', 'Kamera']] : []).map(([v, l]) => `<button class="${S.input === v ? 'on' : ''}" data-act="setv" data-k="input" data-v="${v}">${l}</button>`).join('')}</div></div>
     ${tog('showHints', 'Checkout-Wege & Ziele anzeigen')}
-    ${tog('autoscore', '📷 Kamera-Autoscore (Beta)', 'Handy auf Stativ vor der Scheibe – erkennt Darts automatisch. Im Spiel Eingabe „Kamera“ wählen.')}
-    ${tog('keepAwake', 'Bildschirm anlassen', 'Während der App-Nutzung nicht ausschalten')}
-    <div class="opt"><label>Standard-Eingabe</label><div class="seg">${[['keypad', 'Summe'], ['segments', 'Felder'], ['board', 'Scheibe']].map(([v, l]) => `<button class="${S.input === v ? 'on' : ''}" data-act="setv" data-k="input" data-v="${v}">${l}</button>`).join('')}</div></div>
-    <div class="opt"><label>CPU-Tempo</label><div class="seg">${['Gemütlich', 'Normal', 'Schnell'].map((l, i) => `<button class="${S.cpuSpeed === i ? 'on' : ''}" data-act="setv" data-k="cpuSpeed" data-v="${i}" data-num="1">${l}</button>`).join('')}</div></div>
-  </section>
-  <section class="card"><h3>⬆️ Updates</h3>
-    <div class="row between line"><span>Version</span><b>${esc(APP_VERSION.version)}${APP_VERSION.build ? '' : ''}</b></div>
+    ${tog('keepAwake', 'Bildschirm anlassen', 'Während der App-Nutzung nicht ausschalten')}</section>
+  <section class="card"><h3>🤖 CPU</h3>
+    <div class="opt"><label>CPU-Tempo</label><div class="seg">${['Gemütlich', 'Normal', 'Schnell'].map((l, i) => `<button class="${S.cpuSpeed === i ? 'on' : ''}" data-act="setv" data-k="cpuSpeed" data-v="${i}" data-num="1">${l}</button>`).join('')}</div></div></section>
+  <section class="card"><h3>📷 Kamera-Autoscore <span class="pill gold">Beta</span></h3>
+    ${tog('autoscore', 'Darts automatisch erkennen', 'Handy auf Stativ vor der Scheibe. Im Spiel Eingabe „📷 Kamera“ wählen und einmal kalibrieren.')}</section>
+  <section class="card"><h3>📖 Hilfe</h3><button class="btn wide" data-go="help">Spielregeln & Bedienung</button></section>`;
+}
+
+function tabSystem() {
+  const u = updateState();
+  const kind = u.kind === 'apk' ? 'Android-App (APK)' : u.kind === 'play' ? 'Google Play' : 'Web-App (PWA)';
+  return `<section class="card"><h3>⬆️ Updates</h3>
+    <div class="row between line"><span>Version</span><b>${esc(APP_VERSION.version)}</b></div>
     <div class="row between line"><span>Variante</span><b>${kind}</b></div>
     ${u.kind === 'play' ? '<p class="muted small">Updates kommen über Google Play.</p>' : `
-    ${tog('autoUpdate', 'Automatisch nach Updates suchen', u.kind === 'apk' ? 'Alle 24 Stunden – wie bei unseren anderen Apps' : 'Bei jedem Start und alle 24 Stunden')}
+    ${tog('autoUpdate', 'Automatisch nach Updates suchen', u.kind === 'apk' ? 'Alle 24 Stunden' : 'Bei jedem Start und alle 24 Stunden')}
     ${u.available ? `<button class="btn primary wide" data-act="update">⬆ ${u.kind === 'apk' ? 'Version ' + esc(u.available.tag) + ' installieren' : 'Neue Version laden'}</button>` : `<button class="btn wide" data-act="checkUpd" ${u.checking ? 'disabled' : ''}>${u.checking ? 'Suche …' : 'Nach Updates suchen'}</button>`}
     ${u.progress != null ? `<div class="xpbar"><i style="width:${Math.round(u.progress * 100)}%"></i></div>` : ''}
     ${u.status ? `<p class="muted small">${esc(u.status)}</p>` : ''}`}
-    ${!isApk() && ui.installEvt ? '<button class="btn primary wide" data-act="install">📲 Als App installieren</button>' : ''}
-  </section>
+    ${!isApk() && ui.installEvt ? '<button class="btn primary wide" data-act="install">📲 Als App installieren</button>' : ''}</section>
   <section class="card"><h3>💾 Daten</h3><p class="muted small">Alles bleibt nur auf diesem Gerät. Sichere es, um es auf ein anderes Gerät mitzunehmen.</p>
     <div class="row gap"><button class="btn grow" data-act="export">Sichern</button><button class="btn grow" data-act="import">Wiederherstellen</button></div>
     <button class="btn ghost wide danger" data-act="wipe">Spielverlauf löschen</button></section>
-  <section class="card"><h3>📖 Hilfe</h3><button class="btn wide" data-go="help">Spielregeln & Bedienung</button></section>
   <p class="muted center small">Darts Arena ${esc(APP_VERSION.version)} · Offline nutzbar · Keine Werbung, kein Konto</p>`;
-}
-
-function viewProfiles() {
-  const ps = store.profiles();
-  const act = store.activeProfileId();
-  return `<div class="setup-head"><button class="back" data-go="more">‹</button><div><h2>Profile</h2><small>Das aktive Profil sammelt XP und Erfolge.</small></div></div>
-  ${ps.map((p) => `<section class="card prow">${avatar(p, 'lg')}<div class="grow"><b>${esc(p.name)}</b><small>${p.id === act ? '✓ aktiv' : ''}</small></div>
-    ${p.id !== act ? `<button class="btn small" data-act="activate" data-id="${p.id}">Aktiv</button>` : ''}
-    <button class="icon" data-act="editP" data-id="${p.id}">✎</button>${ps.length > 1 ? `<button class="icon" data-act="delP" data-id="${p.id}">🗑</button>` : ''}</section>`).join('')}
-  <div class="row gap"><input id="newName" placeholder="Name für neues Profil" maxlength="20"><button class="btn primary" data-act="newProfile">Anlegen</button></div>`;
 }
 
 function editProfile(id) {
@@ -708,52 +790,85 @@ function editProfile(id) {
 async function viewCallerAsync() {
   const keys = await packKeys();
   const el = $('#packInfo');
-  if (el) el.innerHTML = keys.length ? `<b>${keys.length}</b> Ansagen geladen: ${keys.sort((a, b) => (isNaN(a) || isNaN(b) ? String(a).localeCompare(b) : a - b)).map((k) => `<span class="pill">${esc(k)}</span>`).join(' ')}` : 'Noch keine eigenen Ansagen.';
-}
-function viewCaller() {
-  setTimeout(viewCallerAsync, 0);
-  return `<div class="setup-head"><button class="back" data-go="more">‹</button><div><h2>Caller</h2><small>Wer ruft deine Punkte aus?</small></div></div>
-  ${CALLERS.map((c) => `<section class="card prow callerrow ${S.caller === c.id ? 'sel' : ''}" data-act="pickCaller" data-id="${c.id}"><span class="ava">${c.flag}</span><div class="grow"><b>${esc(c.name)}</b><small>${esc(c.desc)}</small></div>
-    ${c.id !== 'off' ? `<button class="btn small" data-act="demo" data-id="${c.id}">▶ Probe</button>` : ''}</section>`).join('')}
-  <section class="card"><div class="opt"><label>Lautstärke Caller</label><input type="range" min="0.1" max="1" step="0.05" value="${S.callerVolume}" data-range="callerVolume"></div>
-    <label class="tog"><div><b>„You require …“ ansagen</b><small>Rest im Checkout-Bereich ansagen</small></div><input type="checkbox" data-set="callRest" ${S.callRest ? 'checked' : ''}><i></i></label>
-    <label class="tog"><div><b>Namen ansagen</b></div><input type="checkbox" data-set="callNames" ${S.callNames ? 'checked' : ''}><i></i></label></section>
-  <section class="card"><h3>🎙️ Eigenes Sound-Paket</h3>
-    <p class="muted small">Nimm eigene Ansagen auf oder lade lizenzierte Caller-Dateien. Dateinamen: <code>180.mp3</code>, <code>60.wav</code>, <code>noscore</code>, <code>gameshot</code>, <code>leg</code>, <code>match</code>, <code>require</code>, <code>gameon</code> … Fehlende Ansagen spricht automatisch The Showman.</p>
-    <div id="packInfo" class="packinfo">…</div>
-    <div class="row gap"><button class="btn grow" data-act="packImport">📂 Dateien laden</button><button class="btn grow" data-act="packRec">⏺ Aufnehmen</button></div>
-    <button class="btn ghost wide danger" data-act="packClear">Sound-Paket löschen</button></section>`;
+  if (el) el.innerHTML = keys.length ? `<b>${keys.length}</b> Dateien: ${keys.sort((a, b) => (isNaN(a) || isNaN(b) ? String(a).localeCompare(b) : a - b)).map((k) => `<span class="pill">${esc(k)}</span>`).join(' ')}` : 'Noch keine Dateien geladen.';
 }
 
-let recState = null;
-function recorderModal() {
-  modal(`<h3>⏺ Ansage aufnehmen</h3><p class="muted small">Wähle, was du aufnimmst – oder gib eine Zahl (0–180) ein.</p>
-    <div class="pick wrap">${PACK_KEYS.map((k) => `<button data-act="recKey" data-k="${k}" class="${recState && recState.key === k ? 'on' : ''}">${k}</button>`).join('')}</div>
-    <div class="row gap"><input id="recNum" type="number" min="0" max="180" placeholder="Zahl, z. B. 57"><button class="btn" data-act="recKeyNum">OK</button></div>
-    <div class="recbox"><span id="recKeyLbl">${recState && recState.key ? 'Ansage: <b>' + esc(recState.key) + '</b>' : 'Noch nichts gewählt'}</span>
-    <button class="btn primary big wide" data-act="recToggle" id="recBtn">${recState && recState.rec ? '⏹ Stopp & speichern' : '⏺ Aufnahme starten'}</button></div>`);
+// ------------------------------------------------------------------ Stimme einsprechen (Assistent)
+function newVoiceModal() {
+  modal(`<h3>🎤 Neue Stimme</h3>
+    <div class="opt"><label>Name des Callers</label><input id="vName" maxlength="24" placeholder="z. B. Papa, The Voice, Kalle" value="Meine Stimme"></div>
+    <div class="opt"><label>Sprache der Ansagen</label><div class="seg" id="vLang"><button class="on" data-act="vLang" data-v="de-DE">🇩🇪 Deutsch</button><button data-act="vLang" data-v="en-GB">🇬🇧 Englisch</button></div></div>
+    <div class="opt"><label>Umfang</label><div class="seg" id="vLevel"><button class="on" data-act="vLevel" data-v="basis">Basis (~40, alle Zahlen)</button><button data-act="vLevel" data-v="profi">Komplett (~55, natürlicher)</button></div></div>
+    <p class="muted small">Tipp: Ruhiger Raum, Handy ca. 20 cm vor den Mund, mit Show sprechen – wie im Ally Pally!</p>
+    <button class="btn primary big wide" data-act="voiceCreate">Los geht's 🎙️</button>`);
+  ui.vNew = { lang: 'de-DE', level: 'basis' };
 }
-async function recToggle() {
-  if (!recState || !recState.key) { toast('Bitte zuerst eine Ansage wählen', 'warn'); return; }
-  if (recState.rec) { recState.rec.stop(); return; }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const rec = new MediaRecorder(stream);
-    const chunks = [];
-    rec.ondataavailable = (e) => chunks.push(e.data);
-    rec.onstop = async () => {
-      stream.getTracks().forEach((t) => t.stop());
-      await packSave(recState.key, new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
-      toast(`Ansage „${esc(recState.key)}“ gespeichert`);
-      recState.rec = null;
-      recorderModal();
-      viewCallerAsync();
-    };
-    rec.start();
-    recState.rec = rec;
-    $('#recBtn').textContent = '⏹ Stopp & speichern';
-    setTimeout(() => { if (recState && recState.rec === rec) rec.stop(); }, 6000);
-  } catch (e) { toast('Kein Zugriff aufs Mikrofon', 'warn'); }
+
+async function openWizard(voiceId, level = 'profi') {
+  const V = await import('./voice.js');
+  const v = V.voiceById(voiceId);
+  if (!v) return;
+  const list = V.prompts(v.lang).filter((p) => level === 'profi' || p.level === 'basis');
+  const done = await V.recordedKeys(voiceId);
+  const idx = Math.max(0, list.findIndex((p) => !done.has(p.key)));
+  ui.wiz = { V, voiceId, name: v.name, list, idx, done, running: false, state: 'idle', level: 0 };
+  drawWizard();
+}
+
+function drawWizard() {
+  const w = ui.wiz;
+  if (!w) return;
+  const p = w.list[w.idx];
+  const n = w.list.filter((x) => w.done.has(x.key)).length;
+  const finished = n === w.list.length;
+  const st = { idle: 'Bereit', listen: '🔴 Sprich jetzt!', save: '✓ Gespeichert', play: '🔊 Wiedergabe …', silent: 'Nichts gehört – nochmal', err: 'Kein Mikrofon-Zugriff' }[w.state] || '';
+  modal(`<div class="wiz">
+    <div class="row between"><h3>🎤 ${esc(w.name)}</h3><span class="pill">${n} / ${w.list.length}</span></div>
+    <div class="xpbar"><i style="width:${(n / w.list.length) * 100}%"></i></div>
+    ${finished && !w.running ? `<div class="wiz-done"><div class="trophy">🏆</div><b>Alles eingesprochen!</b><p class="muted small">Deine Stimme ist als Caller ausgewählt. Einzelne Ansagen kannst du unten antippen und neu aufnehmen.</p></div>` : `
+    <div class="wiz-say ${w.state === 'listen' ? 'live' : ''}"><small>Sag:</small><div class="wiz-text">„${esc(p.say)}“</div>${p.hint ? `<small class="muted">${esc(p.hint)}</small>` : ''}</div>
+    <div class="meter"><i id="wizMeter" style="width:${w.level * 100}%"></i></div>
+    <div class="wiz-state">${st}</div>`}
+    <div class="row gap center">${w.running
+      ? '<button class="btn big grow" data-act="wizPause">⏸ Pause</button>'
+      : `<button class="btn primary big grow" data-act="wizStart">${finished ? '⏺ Nochmal aufnehmen' : n ? '⏺ Weiter aufnehmen' : '⏺ Automatisch aufnehmen'}</button>`}
+      <button class="btn big" data-act="wizPlay" ${w.done.has(p.key) ? '' : 'disabled'}>▶</button>
+      <button class="btn big" data-act="wizSkip">⏭</button></div>
+    <div class="wiz-chips">${w.list.map((x, i) => `<button class="${w.done.has(x.key) ? 'ok' : ''} ${i === w.idx ? 'cur' : ''}" data-act="wizGo" data-i="${i}">${esc(x.key === 'hundred' ? (x.say) : x.key)}</button>`).join('')}</div>
+    <button class="btn ghost wide" data-act="wizClose">Fertig</button></div>`, 'wide');
+}
+
+async function wizardLoop() {
+  const w = ui.wiz;
+  if (!w || w.running) return;
+  w.running = true;
+  w.abort = new AbortController();
+  while (ui.wiz === w && w.running && w.idx < w.list.length) {
+    const p = w.list[w.idx];
+    w.state = 'idle'; drawWizard();
+    await new Promise((r) => setTimeout(r, 650));
+    if (!w.running) break;
+    sfx.beep();
+    await new Promise((r) => setTimeout(r, 180));
+    w.state = 'listen'; drawWizard();
+    let clip = null;
+    try {
+      clip = await w.V.recordClip({ signal: w.abort.signal, onLevel: (l) => { w.level = l; const m = $('#wizMeter'); if (m) m.style.width = l * 100 + '%'; } });
+    } catch (e) { w.state = 'err'; w.running = false; drawWizard(); return; }
+    if (!w.running) break;
+    if (!clip) { w.state = 'silent'; drawWizard(); await new Promise((r) => setTimeout(r, 900)); continue; }
+    await w.V.saveClip(w.voiceId, p.key, clip);
+    w.done.add(p.key);
+    w.state = 'play'; drawWizard();
+    await w.V.playKeys([`v:${w.voiceId}:${p.key}`], 1);
+    // nächste noch fehlende Ansage
+    let nx = w.list.findIndex((x, i) => i > w.idx && !w.done.has(x.key));
+    if (nx < 0) nx = w.list.findIndex((x) => !w.done.has(x.key));
+    if (nx < 0) { w.running = false; S.caller = 'voice:' + w.voiceId; saveSettings(); sfx.fanfare(); confetti(80); drawWizard(); return; }
+    w.idx = nx;
+  }
+  w.running = false;
+  drawWizard();
 }
 
 function viewHelp() {
@@ -899,10 +1014,70 @@ function onClick(e) {
       inp.click();
       break;
     }
-    case 'packRec': recState = { key: null, rec: null }; recorderModal(); break;
-    case 'recKey': recState.key = el.dataset.k; recorderModal(); break;
-    case 'recKeyNum': { const n = +$('#recNum').value; if (n >= 0 && n <= 180 && $('#recNum').value !== '') { recState.key = String(n); recorderModal(); } break; }
-    case 'recToggle': recToggle(); break;
+    case 'mtab': {
+      const order = MORE_TABS.map((t) => t.id);
+      const from = order.indexOf(ui.moreTab || 'profil'), to = order.indexOf(el.dataset.t);
+      if (from === to) break;
+      ui.tabAnim = to > from ? 'from-right' : 'from-left';
+      ui.moreTab = el.dataset.t;
+      render();
+      ui.tabAnim = '';
+      break;
+    }
+    case 'voiceNew': newVoiceModal(); break;
+    case 'tile': {
+      const t = tileDefs().find((d) => d.id === el.dataset.id);
+      if (!t) break;
+      ui.daily = false;
+      ui.setup = defaultSetup(t.g, t.cpu ? (+localStorage.getItem('da.lastCpu') || 3) : null);
+      launch(el, () => go('setup'));
+      break;
+    }
+    case 'tilesEdit': tilesEditor(); break;
+    case 'tileStar': {
+      const ids = homeTiles().map((t) => t.id);
+      const i = ids.indexOf(el.dataset.id);
+      if (i >= 0) ids.splice(i, 1); else ids.push(el.dataset.id);
+      setTiles(ids); tilesEditor(); render(); break;
+    }
+    case 'tileUp': {
+      const ids = homeTiles().map((t) => t.id);
+      const i = ids.indexOf(el.dataset.id);
+      if (i > 0) { [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]]; setTiles(ids); tilesEditor(); render(); }
+      break;
+    }
+    case 'tilesReset': setTiles(DEFAULT_TILES); tilesEditor(); render(); break;
+    case 'pin': {
+      const ids = homeTiles().map((t) => t.id);
+      const i = ids.indexOf(el.dataset.id);
+      if (i >= 0) { ids.splice(i, 1); toast('Von der Startseite entfernt'); } else { ids.push(el.dataset.id); toast('⭐ Auf der Startseite'); }
+      setTiles(ids); ui.justSel = `[data-act="pin"][data-id="${el.dataset.id}"]`; render(); break;
+    }
+    case 'vLang': case 'vLevel': {
+      ui.vNew[a === 'vLang' ? 'lang' : 'level'] = el.dataset.v;
+      $$('button', el.parentNode).forEach((b) => b.classList.toggle('on', b === el));
+      el.classList.add('just');
+      break;
+    }
+    case 'voiceCreate': {
+      import('./voice.js').then((V) => {
+        const id = V.addVoice(($('#vName').value || '').trim().slice(0, 24) || 'Meine Stimme', ui.vNew.lang);
+        openWizard(id, ui.vNew.level);
+      });
+      break;
+    }
+    case 'voiceEdit': openWizard(el.dataset.id, 'profi'); break;
+    case 'voiceDel': {
+      if (!confirm('Diese Stimme mit allen Aufnahmen entfernen?')) break;
+      import('./voice.js').then(async (V) => { await V.deleteVoice(el.dataset.id); if (S.caller === 'voice:' + el.dataset.id) { S.caller = 'showman'; saveSettings(); } render(); });
+      break;
+    }
+    case 'wizStart': unlockAudio(); wizardLoop(); break;
+    case 'wizPause': if (ui.wiz) { ui.wiz.running = false; if (ui.wiz.abort) ui.wiz.abort.abort(); } break;
+    case 'wizPlay': if (ui.wiz) ui.wiz.V.playKeys([`v:${ui.wiz.voiceId}:${ui.wiz.list[ui.wiz.idx].key}`], 1); break;
+    case 'wizSkip': if (ui.wiz) { if (ui.wiz.abort) ui.wiz.abort.abort(); ui.wiz.idx = (ui.wiz.idx + 1) % ui.wiz.list.length; if (!ui.wiz.running) drawWizard(); else { ui.wiz.running = false; setTimeout(wizardLoop, 300); } } break;
+    case 'wizGo': if (ui.wiz) { const wasRunning = ui.wiz.running; ui.wiz.running = false; if (ui.wiz.abort) ui.wiz.abort.abort(); ui.wiz.idx = +el.dataset.i; drawWizard(); if (wasRunning) setTimeout(wizardLoop, 300); } break;
+    case 'wizClose': closeModal(); break;
     case 'packClear': if (confirm('Alle eigenen Ansagen löschen?')) packClearCalls().then(viewCallerAsync); break;
     case 'activate': store.setActive(el.dataset.id); render(); break;
     case 'editP': editProfile(el.dataset.id); break;
@@ -975,7 +1150,6 @@ window.__dartsBack = () => {
   if ($('#modal').className !== 'hidden') { closeModal(); return true; }
   if (ui.view === 'play') { onClick({ target: Object.assign(document.createElement('button'), { dataset: { act: 'leave' } }) }); return true; }
   if (['setup', 'help'].includes(ui.view)) { go('games'); return true; }
-  if (['profiles', 'caller'].includes(ui.view)) { go('more'); return true; }
   if (ui.view !== 'home') { go('home'); return true; }
   return false;
 };

@@ -1,11 +1,11 @@
 // Service Worker der PWA: alles offline verfügbar; jede Version (vom Build gesetzt) bekommt einen eigenen Cache.
 // Die App zeigt „Neue Version verfügbar“, sobald ein neuer Worker wartet (siehe js/update.js).
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const CACHE = 'darts-arena-' + VERSION;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/board.js', 'js/games.js', 'js/checkout.js', 'js/caller.js', 'js/audio.js', 'js/store.js',
-  'js/progress.js', 'js/rules.js', 'js/update.js', 'js/native.js', 'js/music.js', 'js/cam.js',
+  'js/progress.js', 'js/rules.js', 'js/update.js', 'js/native.js', 'js/music.js', 'js/cam.js', 'js/voice.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
 ];
 
