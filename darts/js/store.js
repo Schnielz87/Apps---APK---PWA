@@ -8,13 +8,18 @@ const EMOJI = ['🎯', '🦅', '🐺', '🦁', '🔥', '⚡', '🐉', '👑', '�
 
 export const DEFAULT_SETTINGS = {
   caller: 'showman', callerVolume: 0.9, callNames: true, callRest: true,
-  sfx: true, sfxVolume: 0.7, vibrate: true, input: 'keypad', cpuSpeed: 1, showHints: true,
+  sfx: true, sfxVolume: 0.7, vibrate: true, input: 'segments', cpuSpeed: 1, showHints: true,
   music: true, musicVolume: 0.25, musicSource: 'builtin', musicName: '',
   autoscore: false, autoUpdate: true, keepAwake: true, confirmVisit: false, theme: 'dark',
 };
 
 export const store = {
-  settings() { return { ...DEFAULT_SETTINGS, ...read('settings', {}) }; },
+  settings() {
+    const s = { ...DEFAULT_SETTINGS, ...read('settings', {}) };
+    // einmalig: „Felder“ ist jetzt die Standard-Eingabe
+    if (!s.inputV2) { s.input = 'segments'; s.inputV2 = true; write('settings', s); }
+    return s;
+  },
   saveSettings(s) { write('settings', s); },
 
   profiles() {

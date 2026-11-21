@@ -2,24 +2,24 @@
 import { nativeBridge } from './native.js';
 
 export const CALLERS = [
-  { id: 'showman', name: 'The Showman', flag: '🇬🇧', lang: 'en-GB', pitch: 0.72, rate: 0.82, gender: 'm', tv: true,
-    desc: 'TV-Stil: „Ladies and gentlemen … game on!“, Pausen, Betonung und ein langgezogenes „One hundred … and eightyyy!“' },
-  { id: 'kommentator', name: 'Der Kommentator', flag: '🇩🇪', lang: 'de-DE', pitch: 0.85, rate: 0.95, gender: 'm',
+  { id: 'showman', name: 'The Showman', flag: '🇬🇧', lang: 'en-GB', pitch: 0.9, rate: 1.08, gender: 'm', tv: true,
+    desc: 'Kraftvolle Männerstimme im TV-Stil: „Ladies and gentlemen … Game on!“, „One hundred … and eighty!“ – mit Leidenschaft.' },
+  { id: 'kommentator', name: 'Der Kommentator', flag: '🇩🇪', lang: 'de-DE', pitch: 0.92, rate: 1.05, gender: 'm',
     desc: 'Deutsch, kräftige Stimme – sachlich wie im Turnier.' },
   { id: 'schiri', name: 'Die Schiedsrichterin', flag: '🇩🇪', lang: 'de-DE', pitch: 1.2, rate: 1.0, gender: 'f',
     desc: 'Deutsch, klar und freundlich.' },
-  { id: 'lady', name: 'Lady Oche', flag: '🇬🇧', lang: 'en-GB', pitch: 1.25, rate: 0.95, gender: 'f', tv: true,
+  { id: 'lady', name: 'Lady Oche', flag: '🇬🇧', lang: 'en-GB', pitch: 1.1, rate: 1.05, gender: 'f', tv: true,
     desc: 'Englisch, elegant – Ladies-Tour-Feeling.' },
   { id: 'kalle', name: 'Kneipen-Kalle', flag: '🍺', lang: 'de-DE', pitch: 1.0, rate: 1.1, gender: 'm', fun: true,
     desc: 'Deutsch & frech – kommentiert jede Aufnahme mit einem Spruch.' },
   { id: 'robo', name: 'Robo-Caller 3000', flag: '🤖', lang: 'de-DE', pitch: 0.2, rate: 1.2, gender: 'm',
     desc: 'Metallisch, schnell, gnadenlos.' },
-  { id: 'custom', name: 'Eigenes Sound-Paket', flag: '🎙️', lang: 'en-GB', pitch: 0.8, rate: 0.9,
+  { id: 'custom', name: 'Eigenes Sound-Paket', flag: '🎙️', lang: 'en-GB', pitch: 0.9, rate: 1.08, gender: 'm',
     desc: 'Geladene Caller-Dateien (z. B. lizenzierte 180.mp3) – fehlende Ansagen spricht The Showman.' },
   { id: 'off', name: 'Kein Caller', flag: '🔇', desc: 'Nur Soundeffekte.' },
 ];
 
-let settings = { caller: 'showman', volume: 0.9, callNames: true, callRest: true };
+let settings = { caller: 'showman', volume: 0.9, callNames: true, callRest: true, voiceEn: '', voiceDe: '' };
 export function setCallerSettings(s) { settings = { ...settings, ...s }; }
 function customVoices() { try { return JSON.parse(localStorage.getItem('da.voices') || '[]'); } catch (e) { return []; } }
 /** Feste Caller + selbst eingesprochene Stimmen. */
@@ -106,19 +106,47 @@ let voices = [];
 function loadVoices() { try { voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; } catch (e) { voices = []; } }
 if (typeof window !== 'undefined' && window.speechSynthesis) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
 
-const MALE = /male|daniel|markus|stefan|conrad|george|arthur|oliver|thomas|hans|yannick|ryan|guy|david|james|brian|reed|rocko|eddy|grandpa|jonas|killian/i;
+const MALE = /\bmale|daniel|markus|stefan|conrad|george|arthur|oliver|thomas|hans|yannick|ryan|guy|david|james|brian|reed|rocko|eddy|grandpa|jonas|killian|aaron|fred|ralph|alex\b|gordon|lee\b|rishi|nathan|evan|tom\b|william|gbb|gbd|rjs|iol|iom|tpd|deg|ded|smtm/i;
 const FEMALE = /female|anna|helena|hedda|katja|petra|vicki|marlene|amala|libby|sonia|serena|kate|susan|hazel|martha|samantha|karen|moira|tessa|fiona|zira|sandy|shelley|flo/i;
 
+const isMale = (n) => MALE.test(n) && !/female/i.test(n);
+const isFemale = (n) => FEMALE.test(n) || /female/i.test(n);
+/** Gewählte Gerätestimme (Einstellungen) für Männer-Caller dieser Sprache. */
+const overrideFor = (c) => (c.gender === 'm' ? (c.lang.startsWith('en') ? settings.voiceEn : settings.voiceDe) : '') || '';
+
+/** Browser-Stimme wählen: erst Sprache + Geschlecht, dann Geschlecht in verwandter Sprache (en-US statt en-GB), dann irgendeine. */
 function pickVoice(c) {
   if (!voices.length) loadVoices();
+  const ov = overrideFor(c);
+  if (ov) { const v = voices.find((x) => x.name === ov); if (v) return { v, match: true }; }
   const lang = c.lang.toLowerCase();
-  let cands = voices.filter((v) => v.lang && v.lang.toLowerCase().replace('_', '-') === lang);
-  if (!cands.length) cands = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith(lang.slice(0, 2)));
-  if (!cands.length) return null;
-  const re = c.gender === 'f' ? FEMALE : c.gender === 'm' ? MALE : null;
-  const g = re ? cands.filter((v) => re.test(v.name) && !(c.gender === 'm' && /female/i.test(v.name))) : [];
-  const pool = g.length ? g : cands;
-  return pool.find((v) => /natural|neural|premium|enhanced|google/i.test(v.name)) || pool[0];
+  const exact = voices.filter((v) => v.lang && v.lang.toLowerCase().replace('_', '-') === lang);
+  const family = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith(lang.slice(0, 2)));
+  const test = c.gender === 'm' ? isMale : c.gender === 'f' ? isFemale : null;
+  const best = (pool) => pool.find((v) => /natural|neural|premium|enhanced|google/i.test(v.name)) || pool[0];
+  if (test) {
+    const g1 = exact.filter((v) => test(v.name));
+    if (g1.length) return { v: best(g1), match: true };
+    const g2 = family.filter((v) => test(v.name));
+    if (g2.length) return { v: best(g2), match: true };
+  }
+  const any = exact.length ? exact : family;
+  return any.length ? { v: best(any), match: !test } : null;
+}
+
+/** Stimmen für die Auswahl in den Einstellungen. */
+export function deviceVoices(lang2) {
+  const nb = nativeBridge();
+  if (nb && nb.voices) { try { return JSON.parse(nb.voices(lang2)); } catch (e) { return []; } }
+  if (!voices.length) loadVoices();
+  return voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith(lang2)).map((v) => ({ name: v.name, locale: v.lang, male: isMale(v.name), female: isFemale(v.name) }));
+}
+
+const hasCache = {};
+function nativeHas(lang, gender) {
+  const k = lang + gender;
+  if (!(k in hasCache)) { try { hasCache[k] = !!nativeBridge().hasGenderVoice(lang, gender); } catch (e) { hasCache[k] = true; } }
+  return hasCache[k];
 }
 
 function speakTts(text, c, opts = {}) {
@@ -126,21 +154,27 @@ function speakTts(text, c, opts = {}) {
     if (!text) return resolve();
     const rate = (opts.rate || 1) * c.rate;
     const nb = nativeBridge();
-    if (nb && nb.speak) {
+    if (nb && (nb.speak2 || nb.speak)) {
       try {
         const id = 'u' + Math.random().toString(36).slice(2);
         window.__ttsDone = window.__ttsDone || {};
         window.__ttsDone[id] = resolve;
-        nb.speak(text, c.lang, c.pitch, rate, settings.volume, id);
+        if (nb.speak2) {
+          // Android wählt Männer-/Frauenstimme selbst; gibt es keine passende, Tonhöhe für einen tieferen Klang senken
+          let pitch = c.pitch;
+          if (c.gender === 'm' && !overrideFor(c) && !nativeHas(c.lang, 'm')) pitch *= 0.78;
+          nb.speak2(text, c.lang, pitch, rate, settings.volume, id, c.gender || '', overrideFor(c));
+        } else nb.speak(text, c.lang, c.pitch, rate, settings.volume, id);
         setTimeout(resolve, 6000);
         return;
       } catch (e) { /* weiter mit Browser-TTS */ }
     }
     if (!window.speechSynthesis) return resolve();
     const u = new SpeechSynthesisUtterance(text);
-    const v = pickVoice(c);
-    if (v) u.voice = v;
-    u.lang = c.lang; u.pitch = c.pitch; u.rate = rate; u.volume = settings.volume;
+    const pv = pickVoice(c);
+    let pitch = c.pitch;
+    if (pv) { u.voice = pv.v; if (!pv.match && c.gender === 'm') pitch *= 0.78; }
+    u.lang = pv ? pv.v.lang : c.lang; u.pitch = pitch; u.rate = rate; u.volume = settings.volume;
     u.onend = u.onerror = () => resolve();
     speechSynthesis.speak(u);
     setTimeout(resolve, 6000);
@@ -227,20 +261,17 @@ async function packClips(call, ctx) {
 function tvParts(call, ctx) {
   const name = settings.callNames && ctx.name ? ctx.name : '';
   const P = (t, rate = 1, pitch = 1, pause = 0) => ({ t, rate, pitch, pause });
-  if (call.require != null) return [P(name ? name + ',' : '', 1, 1, 120), P('you require', 0.95, 0.95, 120), P(enWords(call.require), 0.85, 1.05)].filter((x) => x.t);
-  if (call.phrase === 'gameon') return [P('Ladies and gentlemen!', 0.85, 0.9, 350), P(name ? `${name} to throw first.` : 'Let\'s play darts!', 0.95, 1, 300), P('Game on!', 0.7, 1.12)];
-  if (call.phrase === 'gameshot' && call.leg) return [P('Game shot!', 0.75, 1.1, 250), P('And the leg!', 0.7, 0.95)];
-  if (call.phrase === 'gameshot') return [P('Game shot!', 0.75, 1.1)];
-  if (call.phrase === 'set') return [P('Game shot!', 0.75, 1.1, 250), P('And the set!', 0.65, 0.95)];
-  if (call.phrase === 'match') return [P('Game shot!', 0.72, 1.12, 300), P('And the match!', 0.6, 0.95, 200), name ? P(name + '!', 0.8, 1.05) : null].filter(Boolean);
-  if (call.phrase === 'bust') return [P('No score.', 0.75, 0.85)];
-  if (call.score === 180) return [P('One hundred', 0.62, 0.92, 120), P('and eighty!', 0.42, 1.25)];
-  if (call.score === 0) return [P('No score.', 0.75, 0.85)];
-  if (call.score != null && call.score >= 100) {
-    const r = call.score % 100;
-    return r ? [P('One hundred', 0.75, 0.95, 60), P('and ' + enWords(r) + '!', 0.62, 1.12)] : [P('One hundred!', 0.62, 1.1)];
-  }
-  if (call.score != null && call.score >= 60) return [P(enWords(call.score) + '!', 0.75, 1.03)];
+  if (call.require != null) return [P(`${name ? name + ', ' : ''}you require ${enWords(call.require)}!`, 1.0, 1.04)];
+  if (call.phrase === 'gameon') return [P('Ladies and gentlemen!', 1.0, 1.05, 120), P(name ? `${name} to throw first.` : 'Let\'s play darts!', 1.05, 1.0, 80), P('Game on!', 0.95, 1.18)];
+  if (call.phrase === 'gameshot' && call.leg) return [P('Game shot, and the leg!', 0.98, 1.12)];
+  if (call.phrase === 'gameshot') return [P('Game shot!', 0.98, 1.15)];
+  if (call.phrase === 'set') return [P('Game shot, and the set!', 0.96, 1.12)];
+  if (call.phrase === 'match') return [P('Game shot, and the match!', 0.94, 1.15, 60), name ? P(name + '!', 1.0, 1.1) : null].filter(Boolean);
+  if (call.phrase === 'bust') return [P('No score!', 1.0, 1.0)];
+  if (call.score === 180) return [P('One hundred', 0.98, 1.05, 30), P('and eighty!', 0.78, 1.2)];
+  if (call.score === 0) return [P('No score!', 1.0, 1.0)];
+  if (call.score != null && call.score >= 100) return [P(enWords(call.score) + '!', 1.0, 1.1)];
+  if (call.score != null) return [P(enWords(call.score) + (call.score >= 60 ? '!' : ''), 1.04, 1.04)];
   return null;
 }
 
