@@ -1,5 +1,6 @@
 // Caller: Sprachansagen per Text-to-Speech (Browser oder Android-TTS) oder eigenes Sound-Paket (Aufnahmen/Dateien).
 import { nativeBridge } from './native.js';
+import { logError } from './log.js';
 
 export const CALLERS = [
   { id: 'showman', name: 'The Showman', flag: '🇬🇧', lang: 'en-GB', pitch: 0.9, rate: 1.08, gender: 'm', tv: true,
@@ -316,7 +317,7 @@ async function pump() {
   busy = true;
   while (queue.length) {
     const it = queue.shift();
-    try { await run(it); } catch (e) { /* weiter */ }
+    try { await run(it); } catch (e) { logError('Caller', e); }
   }
   busy = false;
 }

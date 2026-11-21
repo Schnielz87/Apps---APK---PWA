@@ -1,6 +1,7 @@
 // Kamera-Autoscore (Beta): erkennt neue Darts in der Scheibe per Bildvergleich und rechnet sie über eine
 // 4-Punkt-Kalibrierung (Homographie) in Felder um. Eine Kamera, kein Server – alles läuft auf dem Gerät.
-import { R, hitAt, ORDER } from './board.js';
+import { R, hitAt, ORDER, label } from './board.js';
+import { log, logError } from './log.js';
 
 const W = 256; // Verarbeitungsbreite (Pixel)
 const KEY = 'da.cam';
@@ -66,7 +67,8 @@ export class AutoScore {
     if (this.running) { this.video.play().catch(() => {}); return true; }
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-    } catch (e) { this.onStatus('Kein Kamerazugriff – bitte Kamera erlauben.', 'warn'); return false; }
+    } catch (e) { logError('Kamera', `Kein Zugriff: ${e.name || e}`); this.onStatus('Kein Kamerazugriff – bitte Kamera erlauben.', 'warn'); return false; }
+    log('Kamera', 'Kamera gestartet');
     this.video.srcObject = this.stream;
     await this.video.play().catch(() => {});
     this.running = true;
@@ -102,31 +104,45 @@ export class AutoScore {
 
   startCalibration() {
     this.calibrating = true;
-    if (!this.cal) this.cal = [[0.5, 0.18], [0.78, 0.5], [0.5, 0.82], [0.22, 0.5]];
+    if (!this.cal) this.cal = this.circle();
     this.updateMatrices();
     this.el.classList.add('calib');
     this.drawOverlay();
   }
   endCalibration() { this.calibrating = false; this.el.classList.remove('calib'); this.saveCal(); this.drawOverlay(); }
 
+  /** Kreis in der Bildmitte – in Pixeln rund, egal ob Hoch- oder Querformat. */
+  circle(scale = 0.36) {
+    const w = this.video.videoWidth || 16, h = this.video.videoHeight || 9;
+    const r = Math.min(w, h) * scale, rx = r / w, ry = r / h;
+    return [[0.5, 0.5 - ry], [0.5 + rx, 0.5], [0.5, 0.5 + ry], [0.5 - rx, 0.5]];
+  }
+  resetCircle() { this.cal = this.circle(); this.updateMatrices(); this.drawOverlay(); }
+
   setupDrag() {
-    let drag = -1;
+    let drag = -1, from = null, start = null;
     const pos = (e) => { const r = this.ov.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
     this.ov.addEventListener('pointerdown', (e) => {
       if (!this.calibrating) return;
       const [x, y] = pos(e);
       let best = -1, bd = 0.08;
       this.cal.forEach(([px, py], i) => { const d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = i; } });
-      drag = best;
-      if (drag >= 0) { this.ov.setPointerCapture(e.pointerId); e.preventDefault(); }
+      // kein Punkt getroffen → ganzes Gitter verschieben
+      drag = best >= 0 ? best : 'all';
+      from = [x, y]; start = this.cal.map((p) => p.slice());
+      this.ov.setPointerCapture(e.pointerId); e.preventDefault();
     });
     this.ov.addEventListener('pointermove', (e) => {
-      if (drag < 0) return;
+      if (drag === -1) return;
       const [x, y] = pos(e);
-      this.cal[drag] = [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))];
+      const clamp = (v) => Math.min(1, Math.max(0, v));
+      if (drag === 'all') this.cal = start.map(([px, py]) => [clamp(px + x - from[0]), clamp(py + y - from[1])]);
+      else this.cal[drag] = [clamp(x), clamp(y)];
       this.updateMatrices(); this.drawOverlay();
     });
-    this.ov.addEventListener('pointerup', () => { drag = -1; });
+    const up = () => { drag = -1; };
+    this.ov.addEventListener('pointerup', up);
+    this.ov.addEventListener('pointercancel', up);
   }
 
   /** Scheiben-Gitter (projiziert) über das Kamerabild zeichnen. */
@@ -228,6 +244,7 @@ export class AutoScore {
     const [bx, by] = apply(this.Hi2b, tip[0] / f.w, tip[1] / f.h);
     const dart = hitAt(bx, by);
     this.drawOverlay({ x: bx, y: by });
+    log('Kamera', `Dart erkannt: ${label(dart)} (${Math.round(bx)}/${Math.round(by)} mm)`);
     this.onDart(dart, { x: bx, y: by });
   }
 
