@@ -3,7 +3,7 @@
 const VERSION = '__VERSION__';
 const CACHE = 'darts-arena-' + VERSION;
 const FILES = [
-  './', 'index.html', 'manifest.webmanifest', 'css/app.css',
+  './', 'index.html', 'iphone.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/board.js', 'js/games.js', 'js/checkout.js', 'js/caller.js', 'js/audio.js', 'js/store.js',
   'js/progress.js', 'js/rules.js', 'js/update.js', 'js/native.js', 'js/music.js', 'js/cam.js', 'js/voice.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',

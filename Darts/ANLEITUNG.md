@@ -5,6 +5,8 @@ Kostenlos, ohne Werbung, ohne Konto – alle Daten bleiben auf deinem Gerät.
 
 ## 🍏 iPhone / iPad – als App auf den Home-Bildschirm
 
+➡️ Bebilderte Anleitung direkt fürs iPhone (in Safari öffnen): **https://schnielz87.github.io/Apps---APK---PWA/darts/iphone.html**
+
 1. **Safari** öffnen (wichtig: Safari, nicht Chrome/Instagram/WhatsApp-Vorschau) und diese Adresse aufrufen:
    **https://schnielz87.github.io/Apps---APK---PWA/darts/**
 2. Unten auf das **Teilen-Symbol** tippen (Quadrat mit Pfeil nach oben ⬆️).
