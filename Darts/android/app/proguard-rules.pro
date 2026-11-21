@@ -1,0 +1,1 @@
+-keepclassmembers class de.dartsarena.app.NativeBridge { @android.webkit.JavascriptInterface <methods>; }

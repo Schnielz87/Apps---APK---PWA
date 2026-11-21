@@ -1,0 +1,130 @@
+# Darts Arena: APK + Play-Bundle bauen, als Release veröffentlichen und die PWA auf GitHub Pages stellen.
+# Version = 1.0.<Laufnummer dieses Workflows>. Diese Datei NIE umbenennen/ersetzen – sonst beginnt die Zählung neu
+# und die Update-Funktion der installierten Apps bricht (sie vergleichen die Build-Nummer).
+name: Darts Arena – APK + PWA
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["Darts/**", ".github/workflows/darts.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: darts-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+      VERSION: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Spiellogik testen
+        run: node Darts/test/games.test.mjs
+
+      - name: Version in die Web-Oberfläche schreiben (PWA-Update + Anzeige)
+        run: |
+          echo "{ \"version\": \"${VERSION}\", \"build\": ${BUILD_NUMBER} }" > Darts/web/version.json
+          sed -i "s/__VERSION__/${VERSION}/" Darts/web/sw.js
+
+      - name: Signatur-Schlüssel aus Secrets (optional)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "Eigener Signatur-Schlüssel wird verwendet."
+          else
+            echo "::warning::Kein Signatur-Secret gesetzt – APK wird mit wechselndem Debug-Schlüssel signiert, Updates klappen dann nur per Neuinstallation."
+          fi
+
+      - name: APK + App-Bundle bauen
+        working-directory: Darts/android
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleGithubRelease bundlePlayRelease
+
+      - name: Dateien zusammenstellen
+        run: |
+          mkdir -p out
+          cp Darts/android/app/build/outputs/apk/github/release/app-github-release.apk "out/Darts-Arena-v${VERSION}.apk"
+          # Fester Dateiname – danach sucht die Update-Funktion (UpdateManager.APK_NAME). Nie ändern.
+          cp Darts/android/app/build/outputs/apk/github/release/app-github-release.apk out/Darts-Arena.apk
+          cp Darts/android/app/build/outputs/bundle/playRelease/app-play-release.aab out/Darts-Arena-PlayStore.aab
+          (cd Darts/web && zip -qr ../../out/Darts-Arena-PWA.zip .)
+          ls -la out
+
+      # Kein Actions-Artifact (Speicherlimit) – alles hängt direkt am Release.
+      - name: Release veröffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: darts-v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: Darts Arena v${{ env.VERSION }}
+          make_latest: "true"
+          files: out/*
+          body: |
+            🎯 **Darts Arena** · Version ${{ env.VERSION }}
+
+            📲 **Android:** `Darts-Arena.apk` antippen, herunterladen, installieren („Installation aus unbekannten Quellen“ erlauben).
+            Danach aktualisiert sich die App selbst (Hinweis in der App, alle 24 h – abschaltbar).
+
+            🌐 **Web-App (PWA) – iPhone, PC, jedes Handy:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/darts/
+            Im Browser öffnen → „Zum Startbildschirm hinzufügen“ / „App installieren“. Aktualisiert sich automatisch.
+
+            🛒 `Darts-Arena-PlayStore.aab` ist nur für die Google Play Console. `Darts-Arena-PWA.zip` = Web-App zum Selbst-Hosten.
+
+            Commit: ${{ github.sha }}
+
+      - name: PWA auf GitHub Pages veröffentlichen (Branch gh-pages, Ordner darts/)
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf "$RUNNER_TEMP/pages"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git clone --depth 1 --branch gh-pages "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$RUNNER_TEMP/pages"
+          else
+            mkdir -p "$RUNNER_TEMP/pages" && cd "$RUNNER_TEMP/pages" && git init -q -b gh-pages && git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" && cd -
+          fi
+          rm -rf "$RUNNER_TEMP/pages/darts"
+          cp -r Darts/web "$RUNNER_TEMP/pages/darts"
+          touch "$RUNNER_TEMP/pages/.nojekyll"
+          [ -f "$RUNNER_TEMP/pages/index.html" ] || cat > "$RUNNER_TEMP/pages/index.html" <<'HTML'
+          <!doctype html><meta charset="utf-8"><title>Apps</title><meta http-equiv="refresh" content="0; url=darts/"><a href="darts/">Darts Arena</a>
+          HTML
+          cd "$RUNNER_TEMP/pages"
+          git add -A
+          git commit -qm "Darts Arena ${VERSION} (PWA)" || echo "keine Änderungen"
+          git push -q origin gh-pages
+
+      - name: GitHub Pages einschalten (falls noch aus)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/pages" >/dev/null 2>&1 && { echo "Pages ist aktiv."; exit 0; }
+          gh api -X POST "repos/${{ github.repository }}/pages" -f "source[branch]=gh-pages" -f "source[path]=/" \
+            || echo "::warning::GitHub Pages bitte einmalig einschalten: Settings → Pages → Branch gh-pages / (root)."
