@@ -46,7 +46,7 @@
 <main>
   <header>
     <img src="icons/icon-192.png" alt="Darts Arena">
-    <h1>Hallo <span id="who">Luis</span>! 🎯 <b>Darts Arena</b></h1>
+    <h1>Hallo <span id="who">Louis</span>! 🎯 <b>Darts Arena</b></h1>
     <p class="lead">So holst du dir die Darts-App in 1 Minute auf dein iPhone – kostenlos, ohne App Store, ohne Konto, ohne Werbung.</p>
   </header>
 
@@ -136,7 +136,7 @@
   <footer>Darts Arena · Web-App für iPhone, iPad, Android & PC</footer>
 </main>
 <script>
-  // Name aus dem Link (?n=Name), sonst „Luis“
+  // Name aus dem Link (?n=Name), sonst „Louis“
   try { const n = new URLSearchParams(location.search).get('n'); if (n) document.getElementById('who').textContent = n.slice(0, 20); } catch (e) {}
   const ua = navigator.userAgent;
   const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);

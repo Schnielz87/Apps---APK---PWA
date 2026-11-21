@@ -284,7 +284,7 @@ function viewOnline() {
   if (o.stage === 'hosting' || o.stage === 'joining') {
     return `${head}<section class="card onl-wait">
       ${o.stage === 'hosting' ? `<small>Dein Raum-Code</small><div class="code">${esc(o.code || '…')}</div>
-        <p class="muted small">Schick den Code (oder den Link) an deinen Gegner, z. B. Luis. Er öffnet Darts Arena → Online → Code eingeben.</p>
+        <p class="muted small">Schick den Code (oder den Link) an deinen Gegner, z. B. Louis. Er öffnet Darts Arena → Online → Code eingeben.</p>
         <button class="btn primary big wide" data-act="onlInvite" ${o.code ? '' : 'disabled'}>📤 Einladung senden</button>`
         : `<small>Raum</small><div class="code">${esc(o.code || '')}</div>`}
       <div class="radar"><i></i><i></i><i></i><span>${esc(activeProfile().emoji || '🎯')}</span></div>
