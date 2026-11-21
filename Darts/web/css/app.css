@@ -377,3 +377,21 @@ select.sel { font: inherit; color: var(--tx); background: var(--bg2); border: 1p
 .resume-x:active { transform: scale(.88); color: #fff; background: #e5393555; }
 .resume.gone { animation: gone .28s ease-in forwards; }
 @keyframes gone { to { opacity: 0; transform: translateX(60px) scale(.96); height: 0; margin: 0; padding: 0; } }
+
+/* Online */
+.online-cta { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border-color: #3d8bfd66; background: linear-gradient(135deg, #0f2140, var(--card) 70%); }
+.online-cta .globe { font-size: 2rem; width: 50px; height: 50px; display: grid; place-items: center; border-radius: 50%; background: #3d8bfd33; animation: spin-slow 12s linear infinite; }
+.online-cta small { display: block; color: var(--mu); } .online-cta .chev { font-size: 1.6rem; color: var(--mu); }
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.codein { font-size: 1.5rem; font-weight: 900; letter-spacing: .35em; text-align: center; text-transform: uppercase; }
+.onl-wait { text-align: center; }
+.onl-wait .code { font-size: clamp(2.6rem, 14vw, 4rem); font-weight: 900; letter-spacing: .18em; color: var(--gold); margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
+.onl-wait .code.small { font-size: 1.4rem; letter-spacing: .02em; color: var(--tx); }
+.onl-status { font-weight: 800; margin: 10px 0 6px; min-height: 1.4em; }
+.radar { position: relative; width: 150px; height: 150px; margin: 18px auto 6px; display: grid; place-items: center; }
+.radar span { font-size: 2.4rem; z-index: 1; }
+.radar i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid #3d8bfd; animation: ping 2.4s ease-out infinite; opacity: 0; }
+.radar i:nth-child(2) { animation-delay: .8s; } .radar i:nth-child(3) { animation-delay: 1.6s; }
+@keyframes ping { 0% { transform: scale(.3); opacity: .9; } 100% { transform: scale(1.1); opacity: 0; } }
+.onl { font-size: .72rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; margin-left: 6px; vertical-align: middle; font-style: normal; }
+.onl.ok { background: #2e9e4f33; color: #69f0ae; } .onl.bad { background: #e5393533; color: #ff8a80; animation: live 1.2s infinite; }

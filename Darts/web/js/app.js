@@ -11,6 +11,7 @@ import { RULES, TIPS } from './rules.js';
 import { initUpdates, onUpdate, checkNow, installNow, setAuto, APP_VERSION, updateState } from './update.js';
 import { nativeBridge, isApk, onNative } from './native.js';
 import { AutoScore, CAL_NAMES } from './cam.js';
+import { OnlineSession, seekOpponent, LOBBY_MODES, cleanCode } from './online.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -76,7 +77,7 @@ function go(view, opts = {}) {
 
 function render() {
   const v = $('#view');
-  const map = { home: viewHome, games: viewGames, setup: viewSetup, play: viewPlay, result: viewResult, stats: viewStats, awards: viewAwards, more: viewMore, help: viewHelp };
+  const map = { home: viewHome, games: viewGames, setup: viewSetup, play: viewPlay, result: viewResult, stats: viewStats, awards: viewAwards, more: viewMore, help: viewHelp, online: viewOnline };
   v.innerHTML = (map[ui.view] || viewHome)();
   v.classList.remove('enter');
   if (ui.enter) { void v.offsetWidth; v.classList.add('enter'); ui.enter = false; }
@@ -208,6 +209,7 @@ function viewHome() {
     <div class="xptext">${L.into} / ${L.need} XP bis Level ${L.level + 1}</div>
   </section>
   ${running ? `<div class="card resume" data-act="resume" role="button"><span class="big">▶</span><div class="grow"><b>Spiel fortsetzen</b><small>${esc(gameById(running.gameId)?.meta.name || '')} · ${esc(running.players.map((p) => p.name).join(' vs. '))}</small></div><button class="resume-x" data-act="discardRun" title="Spiel beenden" aria-label="Spiel beenden">✕</button></div>` : ''}
+  <button class="card online-cta" data-go="online"><span class="globe">🌐</span><div class="grow"><b>Online spielen</b><small>Gegen Freunde per Code – oder gegen alle, die gerade spielen</small></div><span class="chev">›</span></button>
   <section class="card daily ${done ? 'done' : ''}">
     <div class="row between"><h3>☀️ Tages-Challenge</h3><span class="pill">${done ? '✓ geschafft' : '+' + ch.xp + ' XP'}</span></div>
     <p>${esc(ch.text)}</p>
@@ -270,6 +272,207 @@ function tilesEditor() {
 }
 function setTiles(ids) { S.homeTiles = ids.slice(0, 12); saveSettings(); }
 
+// ================================================================== Online
+const FRIEND_MODES = [...LOBBY_MODES, { id: 'elim', name: 'Elimination 301', game: 'elimination', cfg: { target: 301, out: 'single' } }];
+const onlineMe = () => { const p = activeProfile(); return { name: p.name, emoji: p.emoji, color: p.color, pid: p.id }; };
+
+function viewOnline() {
+  ui.onl = ui.onl || { stage: 'menu', mode: 'x01-501' };
+  const o = ui.onl;
+  const head = `<div class="setup-head"><button class="back" data-act="onlCancel">‹</button><span class="gi">🌐</span><div><h2>Online spielen</h2><small>Direkt von Handy zu Handy – mit Caller, Statistik & Revanche</small></div></div>`;
+  const modeSeg = (list) => `<div class="seg">${list.map((m) => `<button class="${o.mode === m.id ? 'on' : ''}" data-act="onlMode" data-id="${m.id}">${esc(m.name)}</button>`).join('')}</div>`;
+  if (o.stage === 'hosting' || o.stage === 'joining') {
+    return `${head}<section class="card onl-wait">
+      ${o.stage === 'hosting' ? `<small>Dein Raum-Code</small><div class="code">${esc(o.code || '…')}</div>
+        <p class="muted small">Schick den Code (oder den Link) an deinen Gegner, z. B. Luis. Er öffnet Darts Arena → Online → Code eingeben.</p>
+        <button class="btn primary big wide" data-act="onlInvite" ${o.code ? '' : 'disabled'}>📤 Einladung senden</button>`
+        : `<small>Raum</small><div class="code">${esc(o.code || '')}</div>`}
+      <div class="radar"><i></i><i></i><i></i><span>${esc(activeProfile().emoji || '🎯')}</span></div>
+      <div class="onl-status" id="onlStatus">${esc(o.status || '')}</div>
+      <button class="btn ghost wide" data-act="onlCancel">Abbrechen</button></section>`;
+  }
+  if (o.stage === 'seeking') {
+    const m = LOBBY_MODES.find((x) => x.id === o.mode);
+    return `${head}<section class="card onl-wait"><small>Suche Gegner für</small><div class="code small">${esc(m ? m.name : '')}</div>
+      <div class="radar"><i></i><i></i><i></i><span>🌍</span></div>
+      <div class="onl-status" id="onlStatus">${esc(o.status || 'Suche läuft …')}</div>
+      <p class="muted small">Sobald jemand mit derselben Spielart sucht, geht es automatisch los. Lass die App dafür geöffnet.</p>
+      <button class="btn ghost wide" data-act="onlCancel">Abbrechen</button></section>`;
+  }
+  return `${head}
+  <section class="card"><h3>👥 Gegen Freunde</h3><p class="muted small">Raum erstellen und den Code schicken – oder den Code deines Freundes eingeben.</p>
+    <div class="opt"><label>Spiel</label>${modeSeg(FRIEND_MODES)}</div>
+    <button class="btn primary big wide" data-act="onlHost">➕ Raum erstellen</button>
+    <div class="row gap" style="margin-top:12px"><input id="onlCode" class="codein" maxlength="5" placeholder="CODE" autocapitalize="characters" autocomplete="off"><button class="btn big" data-act="onlJoin">Beitreten</button></div></section>
+  <section class="card"><h3>🌍 Gegen alle</h3><p class="muted small">Zufälliger Gegner, der gerade dieselbe Spielart sucht.</p>
+    <div class="opt">${modeSeg(LOBBY_MODES)}</div>
+    <button class="btn big wide" data-act="onlSeek">🔎 Gegner suchen</button></section>
+  <p class="muted small center">Online wird nur dein Profilname übertragen. Die Würfe gehen verschlüsselt direkt zwischen den Geräten; für Verbindungsaufbau und Gegnersuche wird der öffentliche Dienst PeerJS genutzt.</p>`;
+}
+
+function onlStatus(t) { if (!ui.onl) return; ui.onl.status = t; const el = $('#onlStatus'); if (el) el.textContent = t; }
+
+function wireSession(sess) {
+  ui.online = sess;
+  ui.onlineLost = false;
+  sess.on('status', (t) => onlStatus(t));
+  sess.on('peer', (opp) => {
+    sfx.levelUp(); buzz(60);
+    toast(`🌐 <b>${esc(opp.name)}</b> ist verbunden!`, 'gold');
+    if (sess.role === 'host') setTimeout(() => hostStart(), 900);
+  });
+  sess.on('cfg', (m) => startOnline(m.cfg));
+  sess.on('input', (i) => applyRemote(i));
+  sess.on('sync', (m) => resyncOnline(m));
+  sess.on('lost', () => { ui.onlineLost = true; if (ui.view === 'play') render(); toast('⚠️ Verbindung zum Gegner unterbrochen – verbinde neu …', 'warn'); });
+  sess.on('back', () => { ui.onlineLost = false; if (ui.view === 'play') render(); toast('✅ Wieder verbunden'); });
+  sess.on('emote', (e) => { bigFlash(e, 'ton'); buzz(30); });
+  sess.on('rematch', () => { ui.rematchTheirs = true; if (ui.rematchMine) maybeRematch(); else { toast(`🔁 ${esc(sess.opp ? sess.opp.name : 'Gegner')} will eine Revanche!`, 'gold'); if (ui.view === 'result') render(); } });
+  sess.on('bye', () => {
+    const n = sess.opp ? sess.opp.name : 'Dein Gegner';
+    sess.close(false); ui.online = null;
+    if (ui.view === 'play' || ui.view === 'result') modal(`<h3>👋 ${esc(n)} hat das Spiel verlassen</h3><button class="btn primary wide" data-act="onlLeave">OK</button>`);
+  });
+}
+
+async function onlineHost() {
+  const mode = FRIEND_MODES.find((m) => m.id === ui.onl.mode) || FRIEND_MODES[0];
+  ui.onl = { ...ui.onl, stage: 'hosting', code: null, status: 'Raum wird erstellt …', modeObj: mode };
+  render();
+  const sess = new OnlineSession(onlineMe());
+  wireSession(sess);
+  try {
+    const code = await sess.host();
+    ui.onl.code = code; ui.onl.status = 'Warte auf Gegner …';
+    if (ui.view === 'online') render();
+  } catch (e) {
+    logError('Online', e);
+    ui.onl.status = 'Raum konnte nicht erstellt werden – Internet prüfen.';
+    if (ui.view === 'online') render();
+  }
+}
+
+async function onlineJoin(code) {
+  if (!ui.onl) ui.onl = { stage: 'menu', mode: 'x01-501' };
+  ui.onl = { ...ui.onl, stage: 'joining', code, status: 'Verbinde …' };
+  if (ui.view !== 'online') go('online'); else render();
+  const sess = new OnlineSession(onlineMe());
+  wireSession(sess);
+  sess.on('notfound', () => { setTimeout(() => { if (ui.online === sess && !sess.opp) { sess.close(false); ui.online = null; ui.onl.stage = 'menu'; toast('Raum nicht gefunden – Code prüfen', 'warn'); if (ui.view === 'online') render(); } }, 300); });
+  try { await sess.join(code); } catch (e) { logError('Online', e); onlStatus('Verbindung fehlgeschlagen – Internet prüfen.'); }
+}
+
+async function onlineSeek() {
+  const mode = LOBBY_MODES.find((m) => m.id === ui.onl.mode) || LOBBY_MODES[0];
+  ui.onl = { ...ui.onl, stage: 'seeking', status: 'Suche läuft …', modeObj: mode };
+  render();
+  const p = seekOpponent(onlineMe(), mode, (info) => onlStatus(info.mine ? 'Du bist im Wartebereich – warte auf Gegner …' : info.waiting ? 'Gegner gefunden – verbinde …' : 'Suche läuft …'));
+  ui.seekP = p;
+  try {
+    const sess = await p;
+    if (ui.seekP !== p) return;
+    wireSession(sess);
+    // „peer“ ist schon passiert → direkt weiter
+    toast(`🌐 <b>${esc(sess.opp ? sess.opp.name : 'Gegner')}</b> gefunden!`, 'gold'); sfx.levelUp();
+    if (sess.role === 'host') setTimeout(() => hostStart(), 900);
+  } catch (e) { logError('Lobby', e); onlStatus('Suche fehlgeschlagen – Internet prüfen.'); }
+}
+
+function onlineCancel() {
+  if (ui.seekP) { ui.seekP.cancel(); ui.seekP = null; }
+  if (ui.online && !ui.game) { ui.online.close(); ui.online = null; }
+  if (ui.onl && ui.onl.stage !== 'menu') { ui.onl.stage = 'menu'; if (ui.online) { ui.online.close(); ui.online = null; } render(); }
+  else go('home');
+}
+
+function onlineInvite() {
+  const code = ui.onl && ui.onl.code;
+  if (!code) return;
+  const url = `https://schnielz87.github.io/Apps---APK---PWA/darts/#join=${code}`;
+  const text = `🎯 Lust auf eine Runde Darts? Ich warte in Darts Arena auf dich!\nCode: ${code}\nDirekt beitreten: ${url}\n(Oder in der App: Online spielen → Code eingeben)`;
+  const nb = nativeBridge();
+  if (nb && nb.share) { nb.share(text); return; }
+  if (navigator.share) { navigator.share({ title: 'Darts Arena', text }).catch(() => {}); return; }
+  (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast('Einladung kopiert – jetzt z. B. in WhatsApp einfügen'), () => toast('Code: ' + code));
+}
+
+/** Host legt Spiel und Reihenfolge fest und startet bei beiden. */
+function hostStart(order = null) {
+  const sess = ui.online;
+  if (!sess || !sess.opp) return;
+  const mode = (ui.onl && ui.onl.modeObj) || FRIEND_MODES[0];
+  const me = onlineMe();
+  const pls = [{ pid: me.pid, name: me.name, emoji: me.emoji, color: me.color }, { ...sess.opp }];
+  const ord = order || (Math.random() < 0.5 ? pls : pls.reverse());
+  const cfg = { game: mode.game, cfg: { ...mode.cfg }, order: ord, round: (ui.onlRound || 0) + 1 };
+  sess.start(cfg);
+  startOnline(cfg);
+}
+
+function onlinePlayers(cfg) {
+  const me = onlineMe();
+  return cfg.order.map((p) => (p.pid === me.pid
+    ? { id: activeProfile().id, name: me.name, emoji: me.emoji, color: me.color, cpu: 0 }
+    : { id: 'online-' + p.pid, name: String(p.name).slice(0, 20), emoji: p.emoji || '🎯', color: p.color || '#1e88e5', cpu: 0, remote: true }));
+}
+
+function startOnline(cfg) {
+  ui.onlRound = cfg.round || 1;
+  ui.rematchMine = false; ui.rematchTheirs = false;
+  closeModal();
+  const setup = { id: cfg.game, cfg: { ...cfg.cfg }, players: onlinePlayers(cfg) };
+  gameOnIntro(() => startGame(setup, null, { online: true }));
+}
+
+/** Nach Wiederverbindung: Spiel aus den Einstellungen + allen Eingaben neu aufbauen. */
+function resyncOnline(m) {
+  const setup = { id: m.cfg.game, cfg: { ...m.cfg.cfg }, players: onlinePlayers(m.cfg) };
+  const G = gameById(setup.id);
+  const g = new G(setup.cfg, setup.players);
+  for (const i of m.log) applyToGame(g, i);
+  ui.game = g; ui.gameId = setup.id; ui.setup = setup; ui.isOnline = true;
+  if (ui.view === 'play') render();
+  log('Online', `Abgeglichen (${m.log.length} Eingaben)`);
+}
+
+function applyToGame(g, i) {
+  if (i.k === 'dart') return g.throwDart(i.d.seg === 0 ? MISS : dart(i.d.seg, i.d.mult), i.pos);
+  if (i.k === 'visit') return g.enterVisit(i.total, { darts: i.darts });
+  if (i.k === 'undo') { g.undo(); return null; }
+  return null;
+}
+
+function applyRemote(i) {
+  const g = ui.game;
+  if (!g || g.s.over || !ui.isOnline) return;
+  if (i.k === 'dart') { i.d.seg === 0 ? sfx.miss() : sfx.hit(i.d.mult); buzz(8); }
+  const ev = applyToGame(g, i);
+  if (i.k === 'undo') { render(); return; }
+  if (ev) handleEvent(ev); else render();
+}
+
+function maybeRematch() {
+  if (!ui.online || !ui.rematchMine || !ui.rematchTheirs) return;
+  if (ui.online.role === 'host') {
+    // Verlierer beginnt
+    const e = ui.lastResult && ui.lastResult.entry;
+    const me = onlineMe();
+    const opp = ui.online.opp;
+    const mine = { pid: me.pid, name: me.name, emoji: me.emoji, color: me.color };
+    const iWon = e && e.players[e.winner] && e.players[e.winner].id === activeProfile().id;
+    hostStart(iWon ? [opp, mine] : [mine, opp]);
+  }
+}
+
+function leaveOnline() {
+  if (ui.online) { ui.online.close(); ui.online = null; }
+  if (ui.seekP) { ui.seekP.cancel(); ui.seekP = null; }
+  ui.isOnline = false; ui.game = null;
+  stopCalls();
+  ui.onl = { stage: 'menu', mode: (ui.onl && ui.onl.mode) || 'x01-501' };
+  go('online');
+}
+
 // ================================================================== Spieleliste
 function viewGames() {
   const pinned = new Set(homeTiles().map((t) => t.id));
@@ -331,8 +534,9 @@ function pickCpu() {
 }
 
 // ================================================================== Spielen
-function startGame(setup, resume = null) {
+function startGame(setup, resume = null, opts = {}) {
   const G = gameById(setup.id);
+  ui.isOnline = !!opts.online;
   const game = new G(setup.cfg, setup.players);
   if (resume) { game.s = resume.s; }
   ui.game = game;
@@ -343,7 +547,7 @@ function startGame(setup, resume = null) {
   ui.startedAt = resume ? resume.startedAt : Date.now();
   const humanMode = G.meta.visit ? S.input : (S.input === 'keypad' ? 'segments' : S.input);
   ui.input = humanMode;
-  localStorage.setItem('da.setup.' + setup.id, JSON.stringify({ cfg: setup.cfg, players: setup.players }));
+  if (!ui.isOnline) localStorage.setItem('da.setup.' + setup.id, JSON.stringify({ cfg: setup.cfg, players: setup.players }));
   const c = setup.players.find((p) => p.cpu);
   if (c) localStorage.setItem('da.lastCpu', c.cpu);
   go('play');
@@ -357,6 +561,7 @@ function startGame(setup, resume = null) {
 
 function persist() {
   const g = ui.game;
+  if (ui.isOnline) return; // Online-Spiele werden nicht lokal fortgesetzt
   if (!g || g.s.over) { store.clearRunning(); return; }
   store.saveRunning({ gameId: ui.gameId, cfg: ui.setup.cfg, players: ui.setup.players, s: g.s, startedAt: ui.startedAt, daily: ui.daily });
 }
@@ -383,16 +588,16 @@ function viewPlay() {
   const slots = [0, 1, 2].map((k) => `<span class="slot ${turn[k] ? 'f' : ''}">${turn[k] ? label(turn[k]) : ''}</span>`).join('');
   const turnSum = turn.reduce((a, d) => a + value(d), 0);
   const hint = S.showHints ? g.hint() : '';
-  const isCpu = !!curPlayer().cpu && !g.s.over;
+  const isCpu = !g.s.over && (!!curPlayer().cpu || !!curPlayer().remote);
   const canKeypad = !!G.meta.visit;
   return `
-  <div class="playbar"><button class="back" data-act="leave">‹</button><b>${G.meta.icon} ${esc(G.meta.name)}${g.cfg.start ? ' ' + g.cfg.start : ''}</b>
+  <div class="playbar"><button class="back" data-act="leave">‹</button><b>${G.meta.icon} ${esc(G.meta.name)}${g.cfg.start ? ' ' + g.cfg.start : ''}${ui.isOnline ? ` <span class="onl ${ui.onlineLost ? 'bad' : 'ok'}" title="Online">🌐 ${ui.onlineLost ? 'getrennt' : 'online'}</span>` : ''}</b>
     <div class="row"><button class="icon" data-act="mute" title="Caller">${S.caller === 'off' ? '🔇' : '🔊'}</button><button class="info-btn" data-act="rules" data-g="${G.meta.id}" title="Spielregeln">i</button></div></div>
   <div class="panels ${many ? 'many' : ''}">${panels}</div>
   <div class="hint">${esc(hint) || '&nbsp;'}</div>
   <div class="turnrow"><div class="slots">${slots}</div><div class="tsum">${turn.length ? turnSum : ''}</div>
     <button class="btn small" data-act="undo" ${g.canUndo() ? '' : 'disabled'}>↶ Zurück</button></div>
-  ${isCpu ? `<div class="cpuzone"><div class="cpuboard">${boardSvg({ id: 'cpuBoard' })}</div><div class="cpulabel">🤖 ${esc(curPlayer().name)} wirft …</div></div>` : inputArea(canKeypad)}`;
+  ${isCpu ? `<div class="cpuzone"><div class="cpuboard">${boardSvg({ id: 'cpuBoard' })}</div><div class="cpulabel">${curPlayer().remote ? '🌐' : '🤖'} ${esc(curPlayer().name)} wirft …${curPlayer().remote && g.s.turn.length ? ` <b>${g.s.turn.map(label).join(' · ')}</b>` : ''}</div></div>` : inputArea(canKeypad)}`;
 }
 
 function inputArea(canKeypad) {
@@ -443,6 +648,9 @@ function camera() {
 }
 
 function afterPlayRender() {
+  // Darts des Online-Gegners auf seiner Scheibe zeigen
+  const rb = $('#cpuBoard');
+  if (rb && ui.game && curPlayer().remote) ui.game.s.turn.forEach((t) => { if (t.pos) markDart(rb, t.pos.x, t.pos.y, 'cpu'); });
   const slot = $('#camSlot');
   if (slot) {
     const c = camera();
@@ -476,12 +684,19 @@ function calibrateCam() {
   c.start().then(() => { c.startCalibration(); setTimeout(() => c.drawOverlay(), 400); });
 }
 
+/** Eigener Dart: anwenden und (online) an den Gegner schicken. */
+function localThrow(d, pos) {
+  const ev = ui.game.throwDart(d, pos);
+  if (ui.isOnline && ui.online) ui.online.input({ k: 'dart', d: { seg: d.seg, mult: d.mult }, pos: pos ? { x: Math.round(pos.x), y: Math.round(pos.y) } : null });
+  return ev;
+}
+
 function humanDart(d, pos = null) {
   const g = ui.game;
-  if (!g || g.s.over || curPlayer().cpu || ui.busy) return;
+  if (!g || g.s.over || curPlayer().cpu || curPlayer().remote || ui.busy) return;
   buzz(12);
   d.seg === 0 ? sfx.miss() : sfx.hit(d.mult);
-  const ev = g.throwDart(d, pos || pointIn(d));
+  const ev = localThrow(d, pos || pointIn(d));
   ui.mult = 1;
   handleEvent(ev);
 }
@@ -572,7 +787,10 @@ function submitVisit(total, darts) {
   ui.keypad = '';
   sfx.hit(1);
   buzz(15);
-  handleEvent(ui.game.enterVisit(total, { darts }));
+  if (curPlayer().remote) return;
+  const ev = ui.game.enterVisit(total, { darts });
+  if (ui.isOnline && ui.online && ev && ev.type !== 'invalid') ui.online.input({ k: 'visit', total, darts });
+  handleEvent(ev);
 }
 
 function undo() {
@@ -580,6 +798,14 @@ function undo() {
   stopCpu();
   ui.busy = false;
   if (!g.canUndo()) return;
+  if (ui.isOnline) {
+    // online nur innerhalb der eigenen, laufenden Aufnahme
+    if (curPlayer().remote || !g.s.turn.length) { toast('Online kannst du nur Darts deiner laufenden Aufnahme zurücknehmen', 'warn'); return; }
+    g.undo();
+    if (ui.online) ui.online.input({ k: 'undo' });
+    render();
+    return;
+  }
   g.undo();
   // gegen die CPU: bis zur letzten eigenen Eingabe zurück
   while (g.canUndo() && curPlayer().cpu) g.undo();
@@ -622,7 +848,8 @@ function viewResult() {
   ${legs.length > 1 ? `<section class="card"><h3>Legs</h3>${legs.map((l, i) => `<div class="row between"><span>Leg ${i + 1}: ${esc(entry.players[l.winner].name)}</span><small>${l.darts} Darts · Finish ${l.finish}</small></div>`).join('')}</section>` : ''}
   <section class="card xpcard"><b>+${out.xp} XP</b>${out.records.length ? `<div class="recs">${out.records.map((r) => `<span>🏅 Neuer Rekord: ${esc(r)}</span>`).join('')}</div>` : ''}
     ${out.newAch.length ? `<div class="achs">${out.newAch.map((a) => `<span>${a.icon} ${esc(a.name)}</span>`).join('')}</div>` : ''}</section>
-  <div class="row gap"><button class="btn primary big grow" data-act="rematch">🔁 Revanche</button><button class="btn big grow" data-act="setup" data-g="${entry.game}">⚙️ Ändern</button></div>
+  ${ui.isOnline ? `<div class="row gap"><button class="btn primary big grow" data-act="onlRematch" ${ui.online ? '' : 'disabled'}>🔁 Revanche${ui.rematchTheirs ? ' (Gegner wartet!)' : ''}</button><button class="btn big grow" data-act="onlLeave">🌐 Online-Menü</button></div>`
+    : `<div class="row gap"><button class="btn primary big grow" data-act="rematch">🔁 Revanche</button><button class="btn big grow" data-act="setup" data-g="${entry.game}">⚙️ Ändern</button></div>`}
   <button class="btn ghost wide" data-go="home">Zur Startseite</button>`;
 }
 
@@ -999,7 +1226,7 @@ function onClick(e) {
       humanDart(s === 0 ? MISS : dart(s, m));
       break;
     }
-    case 'endturn': { const g = ui.game; if (curPlayer().cpu) break; const n = 3 - g.s.turn.length; for (let i = 0; i < n && !g.s.over && !curPlayer().cpu; i++) { const ev = g.throwDart(MISS, pointIn(MISS)); if (ev && ev.type === 'turn') { handleEvent(ev); return; } } render(); break; }
+    case 'endturn': { const g = ui.game; if (curPlayer().cpu || curPlayer().remote) break; const n = 3 - g.s.turn.length; for (let i = 0; i < n && !g.s.over && !curPlayer().cpu; i++) { const ev = localThrow(MISS, pointIn(MISS)); if (ev && ev.type === 'turn') { handleEvent(ev); return; } } render(); break; }
     case 'key': {
       const v = el.dataset.v;
       if (v === 'del') ui.keypad = ui.keypad.slice(0, -1);
@@ -1078,6 +1305,21 @@ function onClick(e) {
       break;
     }
     case 'voiceNew': newVoiceModal(); break;
+    case 'onlMode': ui.onl.mode = el.dataset.id; ui.justSel = `[data-act="onlMode"][data-id="${el.dataset.id}"]`; render(); break;
+    case 'onlHost': onlineHost(); break;
+    case 'onlJoin': { const c = cleanCode($('#onlCode') && $('#onlCode').value); if (c.length < 5) { toast('Bitte den 5-stelligen Code eingeben', 'warn'); break; } onlineJoin(c); break; }
+    case 'onlSeek': onlineSeek(); break;
+    case 'onlCancel': onlineCancel(); break;
+    case 'onlInvite': onlineInvite(); break;
+    case 'onlLeave': closeModal(); leaveOnline(); break;
+    case 'onlRematch': {
+      if (!ui.online) break;
+      ui.rematchMine = true;
+      ui.online.send({ t: 'rematch' });
+      if (ui.rematchTheirs) maybeRematch(); else { toast('Revanche angefragt – warte auf Gegner …'); el.disabled = true; }
+      break;
+    }
+    case 'emote': if (ui.online) { ui.online.send({ t: 'emote', e: el.dataset.e }); bigFlash(el.dataset.e, 'ton'); } break;
     case 'openReleases': { const nb = nativeBridge(); if (nb && nb.openUrl) nb.openUrl('https://github.com/Schnielz87/Apps---APK---PWA/releases/latest'); else window.open('https://github.com/Schnielz87/Apps---APK---PWA/releases/latest', '_blank'); break; }
     case 'tile': {
       const t = tileDefs().find((d) => d.id === el.dataset.id);
@@ -1215,6 +1457,12 @@ document.addEventListener('keydown', (e) => {
 // Android-Zurück-Taste (aus der APK) und Browser-Zurück
 /** Im Spiel: nachfragen statt die App zu schließen. */
 function askLeave() {
+  if (ui.isOnline) {
+    if (!ui.game || ui.game.s.over) { leaveOnline(); return; }
+    modal(`<h3>Online-Spiel verlassen?</h3><p class="muted">Das Spiel wird beendet und ${esc(ui.online && ui.online.opp ? ui.online.opp.name : 'dein Gegner')} wird benachrichtigt.</p>
+      <div class="row gap"><button class="btn grow" data-act="close">Weiterspielen</button><button class="btn primary grow" data-act="onlLeave">Verlassen</button></div>`);
+    return;
+  }
   if (!ui.game || ui.game.s.over) { go('home'); return; }
   modal(`<h3>Möchten Sie das Spiel beenden?</h3><p class="muted">Das Spiel bleibt gespeichert – Sie können es auf der Startseite fortsetzen.</p>
     <div class="row gap"><button class="btn grow" data-act="close">Weiterspielen</button><button class="btn primary grow" data-act="leaveOk">Beenden</button></div>
@@ -1226,6 +1474,8 @@ window.__dartsBack = () => {
     if ($('#modal').className !== 'hidden') { closeModal(); return true; }
     if (ui.view === 'play') { askLeave(); return true; }
     if (['setup', 'help'].includes(ui.view)) { go('games'); return true; }
+    if (ui.view === 'online') { onlineCancel(); return true; }
+    if (ui.view === 'result' && ui.isOnline) { leaveOnline(); return true; }
     if (ui.view !== 'home') { go('home'); return true; }
     return false; // Startseite: App darf sich schließen
   } catch (e) {
@@ -1272,8 +1522,12 @@ async function boot() {
   await initUpdates({ auto: S.autoUpdate }).catch(() => {});
   log('App', `Start ${APP_VERSION.version} · ${isApk() ? 'APK' : 'PWA'} · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 120)}`);
   let start = (location.hash || '').slice(1);
-  if (!['home', 'games', 'stats', 'awards', 'more'].includes(start)) start = 'home';
-  go(start);
+  const jm = /^join=([A-Za-z0-9]{5})/.exec(start);
+  if (jm) { go('online'); setTimeout(() => onlineJoin(cleanCode(jm[1])), 400); }
+  else {
+    if (!['home', 'games', 'stats', 'awards', 'more', 'online'].includes(start)) start = 'home';
+    go(start);
+  }
   // Bildschirm anlassen (PWA)
   if (S.keepAwake && navigator.wakeLock && !isApk()) {
     const lock = () => navigator.wakeLock.request('screen').catch(() => {});

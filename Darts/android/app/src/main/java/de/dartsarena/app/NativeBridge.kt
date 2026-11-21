@@ -130,6 +130,17 @@ class NativeBridge(private val act: MainActivity) {
     @JavascriptInterface
     fun saveFile(name: String, text: String) = act.saveText(name, text)
 
+    /** Text über das Android-Teilen-Menü senden (z. B. Online-Einladung per WhatsApp). */
+    @JavascriptInterface
+    fun share(text: String) {
+        act.runOnUiThread {
+            runCatching {
+                val i = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text.take(2000))
+                act.startActivity(android.content.Intent.createChooser(i, "Einladung senden"))
+            }
+        }
+    }
+
     /** Nur die eigene Download-Seite im Browser öffnen. */
     @JavascriptInterface
     fun openUrl(url: String) {

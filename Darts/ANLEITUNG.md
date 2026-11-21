@@ -49,6 +49,14 @@ Installieren-Symbol (Bildschirm mit Pfeil) klicken. Mit Tastatur: Punktzahl tipp
 - **Mehrere Spieler:** *Mehr → Profile* – jeder bekommt eigene Statistik.
 - **Menü-Musik:** *Mehr → Sound → Menü-Musik* – eingebauter Loop oder eigener Song vom Handy (bleibt nur auf dem Gerät).
 
+## 🌐 Online gegeneinander spielen
+
+- **Gegen einen Freund:** Startseite → **„🌐 Online spielen“** → Spiel wählen → **„Raum erstellen“** → **„Einladung senden“** (z. B. per WhatsApp).
+  Der Freund tippt auf den Link oder gibt in der App unter *Online spielen* den **5-stelligen Code** ein → **Beitreten**. Das Spiel startet automatisch.
+- **Gegen alle:** *Online spielen → Gegen alle* → Spielart wählen → **„Gegner suchen“**. Sobald jemand dieselbe Spielart sucht, geht es los.
+- Jeder wirft an seiner eigenen Scheibe und gibt seine Würfe selbst ein – der Gegner sieht alles live. Danach: **Revanche** (der Verlierer beginnt).
+- Bricht die Verbindung kurz ab, verbindet sich die App selbst neu und gleicht den Spielstand ab.
+
 ## 📷 Kamera-Autoscore (Beta, optional)
 
 1. *Mehr → Spiel →* **„Kamera-Autoscore“** einschalten.

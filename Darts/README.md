@@ -19,6 +19,9 @@ Sprachausgabe und Selbst-Update).
 - **13 Spielmodi** – Match: X01 (101–1001, Double/Master/Single-Out, Double-/Master-In, Legs & Sets), Cricket, Elimination
   (Standard, Cut-Throat, ohne Punkte), Shanghai, Halve-It, Killer, Baseball. Training: Around the Clock, Bob's 27,
   Checkout-Training, Scoring 99, Doppel-Training, 121-Checkout-Leiter.
+- **🌐 Online-Modus:** gegen Freunde per Raum-Code/Einladungslink oder „gegen alle“ (automatische Gegnersuche je Spielart).
+  Spiel direkt von Gerät zu Gerät (WebRTC, `web/js/online.js`, PeerJS – MIT, liegt in `web/js/vendor/`), inkl. Revanche,
+  Wiederverbinden und Abgleich nach Verbindungsabbruch. Kein Konto, kein eigener Server.
 - **CPU-Gegner in 10 Stufen** (Ø ca. 25 bis 115) – echtes Wurfmodell auf der Scheibe, kalibriert per Simulation
   (`tools/kalibrieren.mjs`), spielt Checkout-Wege wie ein Profi.
 - **Caller:** The Showman (englisch, im Stil der TV-Referees), Der Kommentator, Die Schiedsrichterin, Lady Oche,

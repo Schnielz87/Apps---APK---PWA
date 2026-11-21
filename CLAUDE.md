@@ -11,5 +11,8 @@
 - Keine urheberrechtlich geschützten Inhalte (Musik, echte Caller-Stimmen, fremde Logos) einbauen – Nutzer können eigene
   Dateien lokal laden (Sound-Paket, Menü-Musik).
 - Keine Schlüssel/Tokens ins Repo; Signatur nur über GitHub-Secrets.
+- Online-Modus (`Darts/web/js/online.js`): direkt Gerät zu Gerät per PeerJS (Vermittler `0.peerjs.com`, TURN von PeerJS).
+  Online-Eingaben laufen über `localThrow`/`submitVisit`/`undo` in `app.js` – neue Eingabearten dort ebenfalls weitergeben.
+  Protokoll-Version `PROTO` erhöhen, wenn sich Nachrichten ändern.
 - Prüfen: `node Darts/test/games.test.mjs`; APK: `cd Darts/android && ./gradlew assembleGithubRelease`.
 - README der App (`Darts/README.md`) und Spielregeln (`web/js/rules.js`) bei Änderungen mitpflegen.
