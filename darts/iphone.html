@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Darts Arena aufs iPhone</title>
+  <meta name="theme-color" content="#0b0d10">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    :root { --bg: #0b0d10; --card: #161b22; --line: #2a313b; --tx: #f3f5f7; --mu: #9aa4b1; --red: #e53935; --gold: #f5c542; --green: #2e9e4f; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: var(--tx); line-height: 1.5;
+      background: radial-gradient(900px 420px at 50% -160px, #3a1216 0%, transparent 65%), var(--bg); }
+    main { max-width: 560px; margin: 0 auto; padding: calc(20px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom)); }
+    header { text-align: center; margin-bottom: 18px; }
+    header img { width: 96px; height: 96px; border-radius: 22px; box-shadow: 0 12px 30px #0008; }
+    h1 { font-size: 1.7rem; font-style: italic; font-weight: 900; margin: 12px 0 4px; }
+    h1 b { color: var(--red); }
+    .lead { color: var(--mu); margin: 0; }
+    .card { background: var(--card); border: 1px solid #ffffff12; border-radius: 18px; padding: 16px; margin: 12px 0; }
+    .warn { border-color: #f5c54266; background: linear-gradient(135deg, #2b2410, var(--card) 70%); }
+    .ok { border-color: #2e9e4f66; background: linear-gradient(135deg, #12301c, var(--card) 70%); }
+    .step { display: flex; gap: 14px; align-items: flex-start; }
+    .num { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 900;
+      background: linear-gradient(180deg, #f04440, #b71c1c); box-shadow: 0 4px 12px #e5393555; }
+    .step h2 { font-size: 1.08rem; margin: 4px 0 4px; }
+    .step p { margin: 0 0 6px; color: #d7dde4; }
+    .ill { margin-top: 10px; background: #000; border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 14px; }
+    .ill svg { flex: none; }
+    .menu { width: 100%; background: #1c1c1e; border-radius: 12px; overflow: hidden; font-size: .95rem; }
+    .menu div { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; border-bottom: 1px solid #2c2c2e; color: #e5e5ea; }
+    .menu div:last-child { border: 0; }
+    .menu .hl { background: #0a84ff33; outline: 2px solid #0a84ff; outline-offset: -2px; font-weight: 700; color: #fff; }
+    .btn { display: block; width: 100%; text-align: center; text-decoration: none; color: #fff; font-weight: 800; font-size: 1.1rem; padding: 16px;
+      border-radius: 14px; background: linear-gradient(180deg, #f04440, #b71c1c); box-shadow: 0 8px 22px #e5393544; margin-top: 14px; border: 0; }
+    .btn.ghost { background: transparent; border: 1px solid var(--line); box-shadow: none; font-size: 1rem; }
+    .url { display: block; text-align: center; font-family: ui-monospace, Menlo, monospace; font-size: .85rem; color: var(--gold); word-break: break-all; margin-top: 8px; }
+    ul { margin: 6px 0 0; padding-left: 20px; } li { margin: 4px 0; color: #d7dde4; }
+    .muted { color: var(--mu); font-size: .9rem; }
+    .hidden { display: none; }
+    footer { text-align: center; color: var(--mu); font-size: .8rem; margin-top: 24px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icons/icon-192.png" alt="Darts Arena">
+    <h1>Hallo <span id="who">Luis</span>! 🎯 <b>Darts Arena</b></h1>
+    <p class="lead">So holst du dir die Darts-App in 1 Minute auf dein iPhone – kostenlos, ohne App Store, ohne Konto, ohne Werbung.</p>
+  </header>
+
+  <div id="notSafari" class="card warn hidden">
+    <b>⚠️ Bitte in Safari öffnen</b>
+    <p class="muted">Du bist gerade nicht in Safari (z. B. in WhatsApp oder Chrome). Nur Safari kann Apps auf den Home-Bildschirm legen.
+      Tippe oben/unten auf <b>„…“</b> oder das Kompass-Symbol und wähle <b>„In Safari öffnen“</b>. Oder Link kopieren und in Safari einfügen:</p>
+    <span class="url">https://schnielz87.github.io/Apps---APK---PWA/darts/iphone.html</span>
+  </div>
+
+  <div id="installed" class="card ok hidden">
+    <b>✅ Läuft schon als App!</b>
+    <p class="muted">Du hast Darts Arena bereits vom Home-Bildschirm geöffnet. Viel Spaß – und gut Darts!</p>
+    <a class="btn" href="./">Darts Arena starten</a>
+  </div>
+
+  <section class="card step">
+    <div class="num">1</div>
+    <div>
+      <h2>Darts Arena in Safari öffnen</h2>
+      <p>Tippe auf den Knopf – die App öffnet sich hier in Safari.</p>
+      <a class="btn" href="./" id="openApp">🎯 Darts Arena öffnen</a>
+      <span class="url">schnielz87.github.io/Apps---APK---PWA/darts/</span>
+    </div>
+  </section>
+
+  <section class="card step">
+    <div class="num">2</div>
+    <div>
+      <h2>Auf „Teilen“ tippen</h2>
+      <p>In der unteren Leiste von Safari (beim iPad oben rechts) das <b>Teilen-Symbol</b> antippen – das Quadrat mit dem Pfeil nach oben.</p>
+      <p class="muted">Siehst du keine Leiste? Einmal kurz nach unten wischen oder unten auf die Adresse tippen. Bei neuen iOS-Versionen ggf. erst auf <b>„…“</b> tippen.</p>
+      <div class="ill">
+        <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><rect x="1" y="1" width="62" height="62" rx="14" fill="#1c1c1e" stroke="#0a84ff" stroke-width="2"/>
+          <path d="M32 12v26M23 20l9-9 9 9" fill="none" stroke="#0a84ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M22 28h-4v24h28V28h-4" fill="none" stroke="#0a84ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>⬅ dieses Symbol</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card step">
+    <div class="num">3</div>
+    <div>
+      <h2>„Zum Home-Bildschirm“ wählen</h2>
+      <p>Im Menü nach unten scrollen und <b>„Zum Home-Bildschirm“</b> antippen.</p>
+      <div class="ill"><div class="menu">
+        <div>Kopieren <span>⧉</span></div>
+        <div>Zur Leseliste hinzufügen <span>👓</span></div>
+        <div class="hl">Zum Home-Bildschirm <span>⊞</span></div>
+        <div>Auf Seite suchen <span>🔍</span></div>
+      </div></div>
+      <p class="muted">Steht es nicht da? Ganz unten auf <b>„Aktionen bearbeiten …“</b> tippen und „Zum Home-Bildschirm“ mit dem grünen ＋ hinzufügen.</p>
+    </div>
+  </section>
+
+  <section class="card step">
+    <div class="num">4</div>
+    <div>
+      <h2>„Hinzufügen“ tippen</h2>
+      <p>Den Namen <b>„Darts Arena“</b> so lassen und oben rechts auf <b>„Hinzufügen“</b> tippen. Falls ein Schalter „Als Web-App öffnen“ erscheint: <b>an</b> lassen.</p>
+    </div>
+  </section>
+
+  <section class="card step">
+    <div class="num">5</div>
+    <div>
+      <h2>Fertig – Game on! 🎉</h2>
+      <p>Auf deinem Home-Bildschirm liegt jetzt das <b>Darts-Arena-Symbol</b>. Ab jetzt immer darüber starten: Vollbild, ohne Safari-Leisten und auch <b>ohne Internet</b>.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 style="margin:0 0 6px;font-size:1.08rem">💡 Gut zu wissen</h2>
+    <ul>
+      <li><b>Kein Ton?</b> Den Stumm-Schalter an der Seite des iPhones ausschalten, Lautstärke hoch und einmal auf den Bildschirm tippen.</li>
+      <li><b>Caller wählen:</b> In der App unten <b>Mehr → Caller</b> – z. B. „The Showman“ im TV-Stil. Mit ▶ probehören.</li>
+      <li><b>Eigene Stimme:</b> Mehr → Caller → „＋ Neue Stimme aufnehmen“ – die App sagt dir alles vor.</li>
+      <li><b>Musik im Menü:</b> Mehr → Sound → „Eigenen Song wählen“ und die MP3 aus deinen Dateien nehmen.</li>
+      <li><b>Updates</b> kommen automatisch. Erscheint „Neue Version verfügbar“, einfach antippen.</li>
+      <li><b>Erstes Spiel:</b> Startseite → Kachel <b>„X01 gegen CPU“</b> → Startpunkte, Double-Out & CPU-Stufe wählen → „Game on!“.</li>
+      <li>Deine Daten bleiben nur auf deinem iPhone. Bitte das Symbol <b>nicht</b> löschen, sonst sind Statistik & Erfolge weg (vorher: Mehr → System → Sichern).</li>
+    </ul>
+  </section>
+
+  <footer>Darts Arena · Web-App für iPhone, iPad, Android & PC</footer>
+</main>
+<script>
+  // Name aus dem Link (?n=Name), sonst „Luis“
+  try { const n = new URLSearchParams(location.search).get('n'); if (n) document.getElementById('who').textContent = n.slice(0, 20); } catch (e) {}
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  const inApp = /FBAN|FBAV|Instagram|WhatsApp|Line|CriOS|FxiOS|EdgiOS|GSA/.test(ua);
+  if (standalone) document.getElementById('installed').classList.remove('hidden');
+  else if (ios && inApp) document.getElementById('notSafari').classList.remove('hidden');
+</script>
+</body>
+</html>
