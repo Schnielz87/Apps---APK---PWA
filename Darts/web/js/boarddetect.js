@@ -3,12 +3,16 @@
 // rote Gegenstände) über die Häufung aussortieren, die konvexe Hülle bilden (= Außenkante des Doppelrings) und
 // daraus ein Oval (Ellipse) berechnen. Von der Seite gefilmt ist die Scheibe ein Oval – das passt automatisch.
 
-/** Rot/Grün der Scheibe erkennen (robust gegen gelbe/orange Wände und weißes Licht). */
-function classify(r, g, b) {
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-  if (mx < 45 || mx - mn < 38) return 0; // zu dunkel oder zu grau
-  if (r > g * 1.55 && r > b * 1.45 && r - g > 45) return 1; // rot (nicht orange/gelb)
-  if (g > r * 1.12 && g > b * 1.05 && g - r > 18) return 2; // grün
+/** Rot/Grün der Scheibe über den Farbton erkennen (robust gegen gelbe/orange Wände und warmes Licht). */
+export function classify(r, g, b) {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  if (mx < 40 || d < 34 || d / mx < 0.38) return 0; // zu dunkel oder zu blass
+  let h;
+  if (mx === r) h = (60 * ((g - b) / d) + 360) % 360;
+  else if (mx === g) h = 60 * ((b - r) / d) + 120;
+  else h = 60 * ((r - g) / d) + 240;
+  if (h <= 14 || h >= 338) return 1;  // rot (Orange beginnt ab ca. 18°)
+  if (h >= 80 && h <= 175) return 2;  // grün
   return 0;
 }
 
@@ -45,6 +49,20 @@ export function findBoard(img) {
     if (c) { pts.push([x, y, c]); if (c === 1) red++; else green++; }
   }
   if (pts.length < 60 || red < 20 || green < 20) return null;
+
+  // 1b) Rot und Grün liegen auf der Scheibe immer direkt nebeneinander (Ringe wechseln die Farbe):
+  //     Farbflecken ohne Partner der anderen Farbe in der Nähe sind Wand, Lampe, LED … → verwerfen
+  {
+    const cs0 = Math.max(6, Math.round(w / 40));
+    const gw0 = Math.ceil(w / cs0), gh0 = Math.ceil(h / cs0);
+    const R = new Uint16Array(gw0 * gh0), G = new Uint16Array(gw0 * gh0);
+    for (const [x, y, c] of pts) (c === 1 ? R : G)[((y / cs0) | 0) * gw0 + ((x / cs0) | 0)]++;
+    const near = (arr, gx, gy) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const x = gx + dx, y = gy + dy; if (x >= 0 && y >= 0 && x < gw0 && y < gh0 && arr[y * gw0 + x]) return true; } return false; };
+    const filtered = pts.filter(([x, y, c]) => near(c === 1 ? G : R, (x / cs0) | 0, (y / cs0) | 0));
+    pts.length = 0; pts.push(...filtered);
+    red = pts.filter((p) => p[2] === 1).length; green = pts.length - red;
+    if (pts.length < 60 || red < 20 || green < 20) return null;
+  }
 
   // 2) Dichtester Bereich: Raster-Histogramm, Zelle mit den meisten farbigen Nachbarn = Scheibe
   const cs = Math.max(8, Math.round(w / 32));
