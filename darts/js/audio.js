@@ -43,6 +43,15 @@ export const sfx = {
     tone(a, 140, a.currentTime, 0.09, 'triangle', 0.35);
   },
   miss() { if (!enabled) return; const a = ac(); if (!a) return; tone(a, 220, a.currentTime, 0.15, 'sine', 0.12); },
+  /** Anflug-Geräusch (gefiltertes Rauschen, Tonhöhe fällt). */
+  whoosh() {
+    if (!enabled) return; const a = ac(); if (!a) return;
+    const n = noise(a, 0.5);
+    const f = a.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.4;
+    f.frequency.setValueAtTime(2600, a.currentTime); f.frequency.exponentialRampToValueAtTime(500, a.currentTime + 0.45);
+    const g = a.createGain(); g.gain.setValueAtTime(0.0001, a.currentTime); g.gain.exponentialRampToValueAtTime(0.5 * volume, a.currentTime + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.5);
+    n.connect(f).connect(g).connect(a.destination); n.start();
+  },
   beep() { const a = ac(); if (!a) return; tone(a, 880, a.currentTime, 0.12, 'sine', 0.3); },
   click() { if (!enabled) return; const a = ac(); if (!a) return; tone(a, 1200, a.currentTime, 0.03, 'square', 0.04); },
   bust() {
