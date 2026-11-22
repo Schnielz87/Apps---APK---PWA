@@ -169,17 +169,50 @@ function launch(el, then) {
 }
 
 /** „Game on!“-Intro: Scheibe dreht ein, Dart fliegt hinein. */
+const DART_SVG = `<svg class="rdart" viewBox="0 -24 330 48" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dTip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".45" stop-color="#b8c0c8"/><stop offset=".55" stop-color="#7d868f"/><stop offset="1" stop-color="#dfe4e8"/></linearGradient>
+    <linearGradient id="dBar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9edf0"/><stop offset=".25" stop-color="#a7b0b8"/><stop offset=".5" stop-color="#5d666f"/><stop offset=".75" stop-color="#9aa3ab"/><stop offset="1" stop-color="#3f464d"/></linearGradient>
+    <linearGradient id="dShaft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a5f66"/><stop offset=".3" stop-color="#1c1f23"/><stop offset=".7" stop-color="#0b0c0e"/><stop offset="1" stop-color="#2a2e33"/></linearGradient>
+    <linearGradient id="dFlTop" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#7f0f12"/><stop offset=".5" stop-color="#d32f2f"/><stop offset="1" stop-color="#ff6659"/></linearGradient>
+    <linearGradient id="dFlBot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b0c0f"/><stop offset=".6" stop-color="#b71c1c"/><stop offset="1" stop-color="#e53935"/></linearGradient>
+    <pattern id="dKnurl" width="5" height="48" patternUnits="userSpaceOnUse"><rect width="5" height="48" fill="none"/><rect x="0" width="1.6" height="48" fill="#1e2328" opacity=".55"/><rect x="1.8" width=".8" height="48" fill="#fff" opacity=".35"/></pattern>
+  </defs>
+  <!-- Spitze (Steel Tip) -->
+  <path d="M0 0 L58 -2.6 Q62 -2.8 64 -2.2 L64 2.2 Q62 2.8 58 2.6 Z" fill="url(#dTip)"/>
+  <path d="M1 -0.2 L58 -1.6" stroke="#fff" stroke-width=".6" opacity=".8"/>
+  <!-- Barrel (Tungsten) mit Rändelung -->
+  <path d="M63 -5 Q66 -7.2 72 -7.4 L150 -7.4 Q156 -7 158 -5.2 L158 5.2 Q156 7 150 7.4 L72 7.4 Q66 7.2 63 5 Z" fill="url(#dBar)"/>
+  <rect x="78" y="-7.4" width="26" height="14.8" fill="url(#dKnurl)"/>
+  <rect x="118" y="-7.4" width="26" height="14.8" fill="url(#dKnurl)"/>
+  <rect x="106" y="-7.4" width="2" height="14.8" fill="#2b3137" opacity=".7"/><rect x="112" y="-7.4" width="2" height="14.8" fill="#2b3137" opacity=".7"/>
+  <path d="M66 -4.6 L156 -4.8" stroke="#fff" stroke-width="1.1" opacity=".65"/>
+  <!-- Schaft -->
+  <path d="M158 -4.2 L222 -3.6 L226 -5 L226 5 L222 3.6 L158 4.2 Z" fill="url(#dShaft)"/>
+  <rect x="168" y="-4.3" width="4" height="8.6" fill="#c62828"/><rect x="208" y="-3.9" width="3" height="7.8" fill="#9aa3ab"/>
+  <path d="M160 -2.6 L222 -2.2" stroke="#fff" stroke-width=".7" opacity=".35"/>
+  <!-- Flight (Standard), zwei Flügel in Seitenansicht -->
+  <path d="M214 -2 L248 -20 Q256 -23.5 300 -23 Q318 -22.6 328 -21 L326 -2 Z" fill="url(#dFlTop)" stroke="#3a0608" stroke-width=".8"/>
+  <path d="M214 2 L248 20 Q256 23.5 300 23 Q318 22.6 328 21 L326 2 Z" fill="url(#dFlBot)" stroke="#3a0608" stroke-width=".8"/>
+  <path d="M232 -2.5 L326 -2.5 L326 2.5 L232 2.5 Z" fill="#2b0406" opacity=".85"/>
+  <path d="M252 -18 Q300 -20.5 324 -18.5" stroke="#fff" stroke-width="1" opacity=".45" fill="none"/>
+  <text x="290" y="-8" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-style="italic" font-size="10" fill="#fff" opacity=".9">DA</text>
+  <text x="290" y="16" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-style="italic" font-size="10" fill="#fff" opacity=".55">DA</text>
+</svg>`;
+
 function gameOnIntro(then) {
   if (reduced()) { then(); return; }
   const o = document.createElement('div');
   o.className = 'intro';
-  o.innerHTML = `<div class="intro-board">${boardSvg({ numbers: false })}</div><svg class="intro-dart" viewBox="-30 -30 60 190"><g transform="rotate(180 0 60)"><rect x="-5" y="-4" width="10" height="70" rx="3" fill="#cfd8dc"/><rect x="-9" y="60" width="18" height="46" rx="6" fill="#455a64"/><path d="M0 104 L-26 150 L0 140 L26 150Z" fill="#e53935" stroke="#0b0b0b" stroke-width="3"/><path d="M0 -4 L-2 -26 L2 -26Z" fill="#eceff1"/></g></svg><div class="intro-text">GAME ON!</div>`;
+  o.innerHTML = `<div class="intro-stage"><div class="intro-board">${boardSvg({ numbers: false })}</div>
+    <div class="intro-dart-wrap"><div class="intro-dart-fly">${DART_SVG}</div></div><div class="intro-dust"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+    <div class="intro-text">GAME ON!</div>`;
   document.body.appendChild(o);
-  sfx.hit(1.4);
-  setTimeout(() => { sfx.hit(2); buzz(30); }, 520);
-  setTimeout(then, 900);
-  setTimeout(() => o.classList.add('out'), 1000);
-  setTimeout(() => o.remove(), 1500);
+  setTimeout(() => sfx.whoosh(), 260);
+  setTimeout(() => { sfx.hit(2.2); buzz(35); o.classList.add('impact'); }, 760);
+  setTimeout(then, 1250);
+  setTimeout(() => o.classList.add('out'), 1350);
+  setTimeout(() => o.remove(), 1850);
 }
 
 // ================================================================== Start
