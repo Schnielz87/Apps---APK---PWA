@@ -23,8 +23,9 @@ Sprachausgabe und Selbst-Update).
   Spiel direkt von Gerät zu Gerät (WebRTC, `web/js/online.js`, PeerJS – MIT, liegt in `web/js/vendor/`), inkl. Revanche,
   Wiederverbinden und Abgleich nach Verbindungsabbruch. Kein Konto, kein eigener Server.
 - **⭐ Freundesliste:** Freundes-Code/-Link, Online-Status (online/spielt/offline) und Spielanfragen mit Annehmen/Ablehnen (`web/js/friends.js`).
-- **CPU-Gegner in 10 Stufen** (Ø ca. 25 bis 115) – echtes Wurfmodell auf der Scheibe, kalibriert per Simulation
-  (`tools/kalibrieren.mjs`), spielt Checkout-Wege wie ein Profi.
+- **CPU-Gegner in 10 Stufen** (Ø ca. 25 bis 115, Doppelquote ~4 % bis ~64 %) – realistisches Wurfmodell: Streuung nach
+  oben/unten größer, Doppel-Nervosität bei schwächeren Stufen, gelegentliche Ausreißer, eigenes Wurf-Tempo je Stufe;
+  kalibriert per Simulation (`tools/kalibrieren.mjs`), spielt Checkout-Wege wie ein Profi.
 - **Caller:** The Showman (englisch, im Stil der TV-Referees), Der Kommentator, Die Schiedsrichterin, Lady Oche,
   Kneipen-Kalle, Robo-Caller 3000. The Showman und Lady Oche sprechen im TV-Stil („Ladies and gentlemen …“, Pausen, Betonung).
 - **Eigene Stimmen einsprechen:** Assistent sagt jede Ansage vor, nimmt automatisch auf (stoppt bei Stille), schneidet zu und

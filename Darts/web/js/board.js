@@ -66,16 +66,18 @@ function gauss() {
  */
 export const CPU_LEVELS = [
   null,
-  { name: 'Anfänger', sigma: 34.5, avg: 25 },
-  { name: 'Kneipe', sigma: 24.1, avg: 35 },
-  { name: 'Hobby', sigma: 18.5, avg: 45 },
-  { name: 'Vereinsspieler', sigma: 14.5, avg: 55 },
-  { name: 'Ligaspieler', sigma: 12.2, avg: 65 },
-  { name: 'Fortgeschritten', sigma: 10.2, avg: 75 },
-  { name: 'Regional-Ass', sigma: 8.4, avg: 85 },
-  { name: 'Turnierspieler', sigma: 7.0, avg: 95 },
-  { name: 'Profi', sigma: 5.8, avg: 105 },
-  { name: 'Weltklasse', sigma: 4.9, avg: 115 },
+  // sigma = Streuung beim Scoren (mm), dbl = Faktor beim Checken (Nervosität), wild = Anteil Ausreißer-Würfe,
+  // pace = Wurf-Tempo (1 = normal, größer = mehr Zeit). Kalibriert mit tools/kalibrieren.mjs auf avg (3-Dart-Schnitt im 501).
+  { name: 'Anfänger', sigma: 23.6, dbl: 1.6, wild: 0.12, pace: 1.45, avg: 25, dq: 4 },
+  { name: 'Kneipe', sigma: 18.9, dbl: 1.55, wild: 0.1, pace: 1.35, avg: 35, dq: 6 },
+  { name: 'Hobby', sigma: 14.7, dbl: 1.5, wild: 0.08, pace: 1.25, avg: 45, dq: 10 },
+  { name: 'Vereinsspieler', sigma: 12.7, dbl: 1.42, wild: 0.06, pace: 1.15, avg: 55, dq: 14 },
+  { name: 'Ligaspieler', sigma: 10.7, dbl: 1.34, wild: 0.05, pace: 1.08, avg: 65, dq: 19 },
+  { name: 'Fortgeschritten', sigma: 8.9, dbl: 1.27, wild: 0.04, pace: 1.0, avg: 75, dq: 24 },
+  { name: 'Regional-Ass', sigma: 7.7, dbl: 1.2, wild: 0.03, pace: 0.95, avg: 85, dq: 32 },
+  { name: 'Turnierspieler', sigma: 6.2, dbl: 1.13, wild: 0.02, pace: 0.9, avg: 95, dq: 43 },
+  { name: 'Profi', sigma: 5.3, dbl: 1.07, wild: 0.01, pace: 0.85, avg: 105, dq: 52 },
+  { name: 'Weltklasse', sigma: 4.5, dbl: 1.0, wild: 0.005, pace: 0.8, avg: 115, dq: 64 },
 ];
 
 /** Wurf auf ein Ziel mit Streuung sigma → {dart, x, y}. */
@@ -83,6 +85,20 @@ export function throwAt(target, sigma) {
   const p = aimPoint(target);
   const x = p.x + gauss() * sigma;
   const y = p.y + gauss() * sigma;
+  return { dart: hitAt(x, y), x, y };
+}
+
+/**
+ * Realistischer CPU-Wurf: Streuung nach oben/unten etwas größer als zur Seite (Wurfbewegung),
+ * auf Doppel/Bull beim Checken nervöser, gelegentlich ein Ausreißer (verrissen, abgerutscht).
+ */
+export function cpuThrow(target, lvl, L = CPU_LEVELS[lvl]) {
+  let s = L.sigma;
+  if (target && (target.mult === 2)) s *= L.dbl;
+  if (Math.random() < L.wild) s *= 2.6;
+  const p = aimPoint(target);
+  const x = p.x + gauss() * s * 0.88;
+  const y = p.y + gauss() * s * 1.12;
   return { dart: hitAt(x, y), x, y };
 }
 
