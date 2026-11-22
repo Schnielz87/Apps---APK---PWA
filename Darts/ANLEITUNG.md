@@ -66,8 +66,10 @@ Installieren-Symbol (Bildschirm mit Pfeil) klicken. Mit Tastatur: Punktzahl tipp
 1. *Mehr → Spiel →* **„Kamera-Autoscore“** einschalten.
 2. Handy auf ein **Stativ/eine Halterung**, ca. 1–2 m vor die Scheibe, ganze Scheibe im Bild, nicht im Wurfweg
    (leicht seitlich oder von unten). Gutes, gleichmäßiges Licht hilft sehr.
-3. Im Spiel die Eingabe **„📷 Kamera“** wählen → **Kalibrieren**: die 4 roten Punkte auf den äußeren Rand des
-   Doppelrings bei 20 (oben), 6 (rechts), 3 (unten), 11 (links) ziehen, bis das Gitter auf den Ringen liegt → Fertig.
+3. Im Spiel die Eingabe **„📷 Kamera“** wählen → **Kalibrieren**: Die App **erkennt die Scheibe automatisch** an den
+   rot-grünen Ringen und legt das Gitter darauf – auch wenn die Scheibe von der Seite als Oval erscheint.
+   Ist die **20 nicht oben**, mit **↺ / ↻** drehen → **„Kalibrieren & fertig“**. (Falls nichts erkannt wird: näher ran,
+   mehr Licht – oder unter „Von Hand anpassen“ die 4 Punkte selbst setzen.)
 4. Werfen – die App erkennt jeden neuen Dart und trägt ihn ein. Nach 3 Darts: Darts ziehen, es geht automatisch weiter.
 5. Falsch erkannt? **↶ Zurück** und per „Felder“ eingeben. Danebenwürfe mit **„Miss“** eintragen.
    Bei verändertem Licht oder bewegtem Handy: **„↻ Neu einlernen“** bzw. neu kalibrieren.
