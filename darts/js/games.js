@@ -849,21 +849,33 @@ export class Elimination extends Base {
     this.s.sc[p] = n;
     this.s.st[p].points += v;
     if (n === t) { this.s.over = true; this.s.winner = p; return { end: true, won: true, call: { phrase: 'match' } }; }
+    // Jeder einzelne Pfeil zählt: Zwischenstand = Stand eines Gegners → der muss sofort zurück auf 0.
+    // (Wird die Aufnahme danach überworfen, bleibt die Eliminierung bestehen.)
+    const hit = [];
+    this.players.forEach((pl, i) => { if (i !== p && this.s.sc[i] === n) { this.s.sc[i] = 0; hit.push(pl.name); } });
+    if (hit.length) { this.s.kills[p] += hit.length; return { elim: true, text: `💥 ${hit.join(', ')} zurück auf 0!`, call: { phrase: 'elim' } }; }
     return {};
   }
   onTurnEnd(p, ev) {
-    if (ev.bust || ev.won) return;
-    const mine = this.s.sc[p];
-    const hit = [];
-    if (mine > 0) this.players.forEach((pl, i) => { if (i !== p && this.s.sc[i] === mine) { this.s.sc[i] = 0; hit.push(pl.name); } });
-    if (hit.length) { this.s.kills[p] += hit.length; ev.text = `💥 ${hit.join(', ')} zurück auf 0!`; ev.call = { phrase: 'elim' }; ev.elim = true; }
-    else ev.call = { score: ev.total };
+    if (ev.bust || ev.won || ev.elim) return;
+    ev.call = { score: ev.total };
   }
   score(i) { return this.s.sc[i]; }
   cpuTarget() {
     const p = this.s.cur;
     const rest = this.cfg.target - this.s.sc[p];
     const left = 3 - this.s.turn.length;
+    // Taktik: Gegnerstand mit genau einem Dart erreichbar? → gezielt eliminieren
+    const mine = this.s.sc[p];
+    const oneDart = (diff) => (diff >= 1 && diff <= 20 ? dart(diff, 1) : diff === 25 ? dart(25, 1) : diff === 50 ? dart(25, 2) : diff <= 60 && diff % 3 === 0 ? dart(diff / 3, 3) : diff <= 40 && diff % 2 === 0 ? dart(diff / 2, 2) : null);
+    let bestHit = null;
+    this.players.forEach((_, i) => {
+      if (i === p) return;
+      const diff = this.s.sc[i] - mine;
+      const d = oneDart(diff);
+      if (d && this.s.sc[i] < this.cfg.target && (!bestHit || this.s.sc[i] > bestHit.sc)) bestHit = { d, sc: this.s.sc[i] };
+    });
+    if (bestHit) return bestHit.d;
     if (this.cfg.out === 'double') return aimFor(rest, left, 'double');
     // genau treffen: passt der Rest in einen Dart, direkt darauf zielen
     if (rest <= 20) return dart(rest, 1);
