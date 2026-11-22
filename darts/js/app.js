@@ -1,5 +1,5 @@
 // Darts Arena – Oberfläche (Single-Page-App ohne Framework).
-import { boardSvg, markDart, clearMarks, pointIn, throwAt, CPU_LEVELS, label, value, dart, MISS } from './board.js';
+import { boardSvg, markDart, clearMarks, pointIn, throwAt, cpuThrow, CPU_LEVELS, label, value, dart, MISS } from './board.js';
 import { GAMES, gameById, IMPOSSIBLE } from './games.js';
 import { allCallers, deviceVoices, say, stopCalls, demo, setCallerSettings, callerById, packKeys, packSave, packClearCalls, keyFromFilename, musicFileSave, musicFileDelete } from './caller.js';
 import { setMusicSettings, musicWanted, musicReload } from './music.js';
@@ -645,7 +645,7 @@ function viewSetup() {
   const opts = G.meta.options.map((o) => `
     <div class="opt"><label>${esc(o.label)}</label><div class="seg">${o.values.map((v, i) => `<button class="${su.cfg[o.key] === v ? 'on' : ''}" data-act="opt" data-k="${o.key}" data-i="${i}">${esc(o.names ? o.names[i] : v)}</button>`).join('')}</div></div>`).join('');
   const plist = su.players.map((p, i) => `
-    <div class="prow ${p.cpu ? 'cpu' : ''}">${avatar(p)}<div class="grow"><b>${p.cpu ? '🤖 ' + esc(CPU_LEVELS[p.cpu].name) : esc(p.name)}</b>${p.cpu ? `<small>CPU · Stufe ${p.cpu} · Ø ca. ${CPU_LEVELS[p.cpu].avg}</small>` : '<small>Mensch</small>'}</div>
+    <div class="prow ${p.cpu ? 'cpu' : ''}">${avatar(p)}<div class="grow"><b>${p.cpu ? '🤖 ' + esc(CPU_LEVELS[p.cpu].name) : esc(p.name)}</b>${p.cpu ? `<small>CPU · Stufe ${p.cpu} · Ø ca. ${CPU_LEVELS[p.cpu].avg} · Doppel ~${CPU_LEVELS[p.cpu].dq} %</small>` : '<small>Mensch</small>'}</div>
       <button class="icon" data-act="pUp" data-i="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
       <button class="icon" data-act="pDel" data-i="${i}" ${su.players.length <= 1 ? 'disabled' : ''}>✕</button>
       ${p.cpu ? `<div class="cpulvl"><button class="icon" data-act="cpuLvl" data-i="${i}" data-d="-1">−</button><input type="range" min="1" max="10" step="1" value="${p.cpu}" data-cpulvl="${i}"><button class="icon" data-act="cpuLvl" data-i="${i}" data-d="1">+</button></div>` : ''}</div>`).join('');
@@ -669,7 +669,7 @@ function pickHuman() {
 
 function pickCpu() {
   modal(`<h3>CPU-Gegner wählen</h3><div class="cpulist">${CPU_LEVELS.slice(1).map((l, i) => `
-    <button class="cpurow" data-act="addCpuLvl" data-l="${i + 1}"><b>${i + 1}</b><div class="grow"><span>${l.name}</span><small>Ø ca. ${l.avg}</small></div><i style="width:${(i + 1) * 10}%"></i></button>`).join('')}</div>`);
+    <button class="cpurow" data-act="addCpuLvl" data-l="${i + 1}"><b>${i + 1}</b><div class="grow"><span>${l.name}</span><small>Ø ca. ${l.avg} · Doppel ~${l.dq} % · ~${Math.round(1503 / l.avg)} Darts/Leg</small></div><i style="width:${(i + 1) * 10}%"></i></button>`).join('')}</div>`);
 }
 
 // ================================================================== Spielen
@@ -883,7 +883,7 @@ function scheduleCpu(delay = 700) {
   stopCpu();
   const g = ui.game;
   if (!g || g.s.over || !curPlayer().cpu) return;
-  const speed = [1.6, 1, 0.55][S.cpuSpeed] || 1;
+  const speed = ([1.6, 1, 0.55][S.cpuSpeed] || 1) * (CPU_LEVELS[curPlayer().cpu].pace || 1);
   ui.cpuTimer = setTimeout(cpuStep, delay * speed + 500 * speed);
 }
 
@@ -892,7 +892,7 @@ function cpuStep() {
   if (!g || g.s.over || ui.view !== 'play') return;
   const p = curPlayer();
   if (!p.cpu) return;
-  const t = throwAt(g.cpuTarget(), CPU_LEVELS[p.cpu].sigma);
+  const t = cpuThrow(g.cpuTarget(), p.cpu);
   const before = g.cur;
   const ev = g.throwDart(t.dart, { x: t.x, y: t.y });
   t.dart.seg === 0 ? sfx.miss() : sfx.hit(t.dart.mult);
@@ -915,7 +915,9 @@ function cpuStep() {
   g.s.turn.forEach((d, k) => { if (slots[k]) { slots[k].textContent = label(d); slots[k].classList.add('f'); } });
   const ts = $('.tsum'); if (ts) ts.textContent = g.s.turn.reduce((a, d) => a + value(d), 0);
   const h = $('.hint'); if (h && S.showHints) h.textContent = g.hint();
-  if (before === g.cur) ui.cpuTimer = setTimeout(cpuStep, 750 * ([1.6, 1, 0.55][S.cpuSpeed] || 1));
+  // schwächere Stufen lassen sich mehr Zeit (und schwanken im Rhythmus), Profis werfen zügig
+  const pace = (CPU_LEVELS[p.cpu].pace || 1) * (0.85 + Math.random() * 0.3);
+  if (before === g.cur) ui.cpuTimer = setTimeout(cpuStep, 750 * ([1.6, 1, 0.55][S.cpuSpeed] || 1) * pace);
 }
 
 function keypadOk(total) {
