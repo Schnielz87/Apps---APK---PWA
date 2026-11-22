@@ -780,14 +780,28 @@ function afterPlayRender() {
 
 function calibrateCam() {
   const c = camera();
-  modal(`<h3>🎯 Kamera ausrichten</h3>
-    <p class="muted small">1. Handy fest aufs Stativ <b>seitlich neben das Board</b> (ca. 30–60° schräg, 0,5–1,5 m entfernt, nicht im Wurfweg), sodass die ganze Scheibe im Bild ist.<br>
-    2. Ins Gitter tippen und ziehen = ganzes Gitter verschieben. Dann die 4 roten Punkte auf den <b>äußeren Rand des Doppelrings</b> ziehen: ${CAL_NAMES.map((n, i) => `${i + 1} = ${n}`).join(', ')}.<br>
-    3. Von der Seite sieht die Scheibe wie ein schmales Oval aus – das ist richtig. Die 4 Punkte einfach auf das Oval ziehen, bis das Gitter genau auf den Ringen liegt. Die Zahlen am Gitter zeigen, ob 20 oben ist.</p>
+  modal(`<h3>🎯 Kamera kalibrieren</h3>
+    <p class="muted small">Handy fest aufs Stativ (gern seitlich neben dem Board), ganze Scheibe im Bild, gutes Licht. Die App sucht die Scheibe automatisch und legt das Gitter darauf.</p>
     <div id="calSlot" class="calslot"></div>
-    <div class="row gap"><button class="btn grow" data-act="camCircle">⭕ Kreis zurücksetzen</button><button class="btn primary grow" data-act="camCalDone">✓ Fertig</button></div>`, 'wide');
+    <div class="calstat" id="calStat">🔍 Suche Dartscheibe …</div>
+    <div class="row gap center calrow"><button class="btn" data-act="camRot" data-d="-4" title="Gitter nach links drehen">↺</button><button class="btn grow" data-act="camDetect">🔍 Automatisch erkennen</button><button class="btn" data-act="camRot" data-d="4" title="Gitter nach rechts drehen">↻</button></div>
+    <details class="calmanual"><summary>Von Hand anpassen</summary><p class="muted small">Ins Gitter tippen und ziehen = ganzes Gitter verschieben. Die 4 roten Punkte auf den <b>äußeren Rand des Doppelrings</b> ziehen: ${CAL_NAMES.map((n, i) => `${i + 1} = ${n}`).join(', ')}.</p>
+      <button class="btn small" data-act="camCircle">⭕ Gitter zurücksetzen</button></details>
+    <button class="btn primary big wide" data-act="camCalDone">✓ Kalibrieren & fertig</button>`, 'wide');
   c.attach($('#calSlot'));
-  c.start().then(() => { c.startCalibration(); setTimeout(() => c.drawOverlay(), 400); });
+  c.start().then(() => { c.startCalibration(); setTimeout(() => { c.drawOverlay(); runDetect(); }, 700); });
+}
+
+async function runDetect() {
+  const c = ui.cam;
+  const st = $('#calStat');
+  if (!c || !st) return;
+  st.className = 'calstat'; st.textContent = '🔍 Suche Dartscheibe …';
+  const e = await c.autoDetect();
+  const st2 = $('#calStat');
+  if (!st2) return;
+  if (e) { st2.className = 'calstat ok'; st2.innerHTML = '✅ Scheibe erkannt! Liegt das Gitter auf den Ringen und ist die <b>20 oben</b>? Sonst mit ↺ / ↻ drehen. Dann „Kalibrieren & fertig“.'; sfx.levelUp(); buzz(40); }
+  else { st2.className = 'calstat warn'; st2.innerHTML = '⚠️ Keine Scheibe erkannt. Tipps: näher ran, mehr Licht, ganze Scheibe ins Bild – dann erneut „Automatisch erkennen“. Oder unten „Von Hand anpassen“.'; }
 }
 
 /** Eigener Dart: anwenden und (online) an den Gegner schicken. */
@@ -1351,6 +1365,8 @@ function onClick(e) {
     case 'camCalDone': if (ui.cam) ui.cam.endCalibration(); closeModal(); render(); toast('Kalibrierung gespeichert'); break;
     case 'camRelearn': if (ui.cam) ui.cam.relearn(); break;
     case 'camCircle': if (ui.cam) ui.cam.resetCircle(); break;
+    case 'camDetect': runDetect(); break;
+    case 'camRot': if (ui.cam) ui.cam.rotate(+el.dataset.d); break;
     case 'logShow': showLog(); break;
     case 'logCopy': { const t = fullLog(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Protokoll kopiert'), () => toast('Kopieren nicht möglich – bitte „Teilen/Speichern“ nutzen', 'warn')); break; }
     case 'logShare': {

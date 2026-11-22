@@ -2,6 +2,7 @@
 // 4-Punkt-Kalibrierung (Homographie) in Felder um. Eine Kamera, kein Server – alles läuft auf dem Gerät.
 import { R, hitAt, ORDER, label } from './board.js';
 import { log, logError } from './log.js';
+import { findBoard, ellipseToCal } from './boarddetect.js';
 
 const W = 256; // Verarbeitungsbreite (Pixel)
 const KEY = 'da.cam';
@@ -117,7 +118,54 @@ export class AutoScore {
     const r = Math.min(w, h) * scale, rx = r / w, ry = r / h;
     return [[0.5, 0.5 - ry], [0.5 + rx, 0.5], [0.5, 0.5 + ry], [0.5 - rx, 0.5]];
   }
-  resetCircle() { this.cal = this.circle(); this.updateMatrices(); this.drawOverlay(); }
+  resetCircle() { this.cal = this.circle(); this.lastEllipse = null; this.rot = 0; this.updateMatrices(); this.drawOverlay(); }
+
+  /** Farbbild in Erkennungs-Auflösung. */
+  grabColor(width = 320) {
+    const v = this.video;
+    if (!v.videoWidth) return null;
+    const h = Math.round((width * v.videoHeight) / v.videoWidth);
+    if (!this.dcan) { this.dcan = document.createElement('canvas'); this.dctx = this.dcan.getContext('2d', { willReadFrequently: true }); }
+    this.dcan.width = width; this.dcan.height = h;
+    this.dctx.drawImage(v, 0, 0, width, h);
+    return this.dctx.getImageData(0, 0, width, h);
+  }
+
+  /** Scheibe automatisch suchen (mehrere Bilder, bestes nehmen) und das Gitter darauf setzen. */
+  async autoDetect(tries = 6) {
+    let best = null, bw = 0, bh = 0;
+    for (let i = 0; i < tries; i++) {
+      const img = this.grabColor();
+      if (img) {
+        const e = findBoard(img);
+        if (e && (!best || e.score > best.score)) { best = e; bw = img.width; bh = img.height; }
+      }
+      await new Promise((r) => setTimeout(r, 220));
+    }
+    if (!best) { log('Kamera', 'Automatische Erkennung: keine Scheibe gefunden'); return null; }
+    this.lastEllipse = { ...best, w: bw, h: bh };
+    this.rot = 0;
+    this.cal = ellipseToCal(best, bw, bh, 0);
+    this.updateMatrices(); this.drawOverlay();
+    log('Kamera', `Scheibe automatisch erkannt (Oval ${Math.round(best.a)}×${Math.round(best.b)} px, Güte ${(best.score * 100).toFixed(0)} %)`);
+    return best;
+  }
+
+  /** Gitter um die erkannte Scheibe drehen (falls die 20 nicht ganz oben sitzt). */
+  rotate(deg) {
+    if (this.lastEllipse) {
+      this.rot = (this.rot || 0) + deg;
+      const e = this.lastEllipse;
+      this.cal = ellipseToCal(e, e.w, e.h, this.rot);
+    } else {
+      // ohne Erkennung: die 4 Punkte um ihren Mittelpunkt drehen (in Pixeln)
+      const w = this.video.videoWidth || 1, h = this.video.videoHeight || 1;
+      const cx = this.cal.reduce((s, p) => s + p[0], 0) / 4 * w, cy = this.cal.reduce((s, p) => s + p[1], 0) / 4 * h;
+      const r = (deg * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r);
+      this.cal = this.cal.map(([x, y]) => { const dx = x * w - cx, dy = y * h - cy; return [(cx + dx * c - dy * sn) / w, (cy + dx * sn + dy * c) / h]; });
+    }
+    this.updateMatrices(); this.drawOverlay();
+  }
 
   setupDrag() {
     let drag = -1, from = null, start = null;

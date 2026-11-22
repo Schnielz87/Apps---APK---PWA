@@ -412,3 +412,9 @@ select.sel { font: inherit; color: var(--tx); background: var(--bg2); border: 1p
 /* Eingabefeld + Knopf in einer Zeile: Knopf nie abschneiden */
 .row > input + .btn { flex: none; white-space: nowrap; }
 .row > input { flex: 1; min-width: 0; }
+
+/* Kalibrierung: automatische Erkennung */
+.calstat { text-align: center; font-weight: 700; margin: 8px 0; padding: 8px 10px; border-radius: 12px; background: var(--bg2); font-size: .92rem; }
+.calstat.ok { background: #12301c; color: #b9f6ca; } .calstat.warn { background: #2b2410; color: #ffe8a3; }
+.calrow .btn { font-size: 1.05rem; } .calrow .btn:not(.grow) { width: 52px; font-size: 1.3rem; }
+.calmanual { margin: 8px 0 4px; } .calmanual summary { cursor: pointer; color: var(--mu); font-size: .9rem; }
