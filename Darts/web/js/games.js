@@ -323,22 +323,29 @@ export class Cricket extends Base {
   get maxRounds() { return this.cfg.rounds === 99 ? 0 : this.cfg.rounds; }
   closedByAll(seg) { return this.s.marks.every((m) => m[seg] >= 3); }
   onDart(p, d) {
+    if (this.s.turn.length === 1) this.s.tm = 0; // Marks dieser Aufnahme (nur wirksame)
     if (!CRICKET.includes(d.seg)) return {};
     const m = this.s.marks[p];
     let hits = d.mult;
     const need = Math.max(0, 3 - m[d.seg]);
     const used = Math.min(need, hits);
     m[d.seg] += used;
-    this.s.mpr[p] += hits;
     const extra = hits - used;
+    // Zählt nur, was wirklich wirkt: Schließen + Treffer, die (noch) Punkte bringen.
+    // Ist die Zahl bei allen zu, zählen weitere Treffer weder für die Ansage noch für den MPR.
+    let scored = 0;
     if (extra > 0 && this.cfg.variant !== 'noscore') {
       const pts = extra * (d.seg === 25 ? 25 : d.seg);
       if (this.cfg.variant === 'cutthroat') {
-        this.s.marks.forEach((om, i) => { if (i !== p && om[d.seg] < 3) this.s.pts[i] += pts; });
+        this.s.marks.forEach((om, i) => { if (i !== p && om[d.seg] < 3) { this.s.pts[i] += pts; scored = extra; } });
       } else if (!this.s.marks.every((om, i) => i === p || om[d.seg] >= 3)) {
         this.s.pts[p] += pts;
+        scored = extra;
       }
     }
+    const eff = used + scored;
+    this.s.mpr[p] += eff;
+    this.s.tm = (this.s.tm || 0) + eff;
     if (this.checkWin(p)) { this.s.over = true; this.s.winner = p; return { end: true, call: { phrase: 'match' } }; }
     return {};
   }
@@ -350,8 +357,8 @@ export class Cricket extends Base {
     return this.cfg.variant === 'cutthroat' ? this.s.pts.every((x, i) => i === p || mine <= x) : this.s.pts.every((x, i) => i === p || mine >= x);
   }
   onTurnEnd(p, ev) {
-    const marks = ev.darts.reduce((a, d) => a + (CRICKET.includes(d.seg) ? d.mult : 0), 0);
-    ev.call = { marks };
+    ev.call = { marks: this.s.tm || 0 };
+    this.s.tm = 0;
   }
   finishByScore() {
     const n = this.players.length;
