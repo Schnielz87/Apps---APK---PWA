@@ -865,12 +865,13 @@ function handleEvent(ev) {
     else if (ev.total >= 140 && !ev.bust && (g.meta.id === 'x01' || g.meta.id === 'scoring')) { sfx.cheer(0.5); bigFlash(String(ev.total), 'ton'); }
     if (ev.won) { sfx.cheer(1); confetti(70); bigFlash(g.s.over ? 'GAME SHOT!' : `LEG ${p.name}`, 'win'); }
     if (ev.shanghai) { sfx.fanfare(); confetti(120); bigFlash('SHANGHAI!', 'max'); }
-    if (ev.elim) { sfx.bust(); buzz(80); bigFlash('💥 ELIMINIERT!', 'bust'); }
     if (ev.text && !ev.bust) toast(esc(ev.text));
     say(ev.call, { name: p.name });
     if (ev.require && S.callRest && !g.s.over) say({ require: ev.require.rest }, { name: g.players[ev.require.player].name });
     if (ui.cam && ui.input === 'camera' && !p.cpu && ev.darts && ev.darts.length) ui.cam.expectPull();
   } else if (ev.text) toast(esc(ev.text));
+  // Elimination: wirkt schon beim einzelnen Pfeil, nicht erst am Ende der Aufnahme
+  if (ev.elim) { sfx.bust(); buzz(80); bigFlash('💥 ELIMINIERT!', 'bust'); if (ev.type !== 'turn') say(ev.call, {}); }
   persist();
   if (g.s.over) { setTimeout(finishGame, ev.won || ev.shanghai ? 1600 : 900); render(); return; }
   render();

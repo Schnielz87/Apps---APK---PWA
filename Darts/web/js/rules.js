@@ -27,7 +27,8 @@ export const RULES = {
 • Als Killer nimmst du Gegnern mit Treffern auf ihr Doppel ein Leben. Eigenes Doppel als Killer kostet dich ein Leben.
 • Wer zuletzt noch Leben hat, gewinnt.`,
   elimination: `Alle starten bei 0 und zählen ihre Punkte nach oben – Ziel ist genau 301 (bzw. 501).
-• Landet deine Aufnahme genau auf dem Punktestand eines Gegners, muss dieser zurück auf 0 („eliminiert“).
+• Jeder einzelne Pfeil zählt: Erreichst du – auch schon mit dem 1. oder 2. Dart – genau den Punktestand eines Gegners, muss dieser sofort zurück auf 0 („eliminiert“). Die Reihenfolge deiner Würfe ist also entscheidend!
+• Wird die Aufnahme danach überworfen, bleibt die Eliminierung trotzdem bestehen.
 • Über das Ziel geworfen = überworfen, die Aufnahme zählt nicht. Bei Double-Out muss der letzte Dart ein Doppel sein.
 • Wer zuerst genau das Ziel erreicht, gewinnt. Die App zeigt dir, mit welcher Punktzahl du gerade jemanden eliminieren kannst.`,
   baseball: `9 Innings. Im Inning n zählt nur die Zahl n: Single = 1 Run, Double = 2, Triple = 3. Im 7. Inning zählt Bull doppelt. Die meisten Runs gewinnen.`,
