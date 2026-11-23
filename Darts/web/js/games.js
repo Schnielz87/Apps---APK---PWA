@@ -305,6 +305,15 @@ export class X01 extends Base {
 
 // ================================================================== Cricket
 const CRICKET = [20, 19, 18, 17, 16, 15, 25];
+// Spielertypen der CPU bei Cricket: close = Schließen, defense = Verteidigen, attack = Punkten, bull = Lust aufs Bull, chaos = Zufall
+const CRICKET_STYLES = [
+  { id: 'klassik', label: '🎯 Klassiker', close: 1.0, defense: 1.0, attack: 1.0, bull: 0.8, chaos: 0.5 },
+  { id: 'punkte', label: '💰 Punktejäger', close: 0.85, defense: 0.6, attack: 1.8, bull: 0.9, chaos: 0.6 },
+  { id: 'abwehr', label: '🛡️ Verteidiger', close: 1.0, defense: 1.9, attack: 0.7, bull: 0.8, chaos: 0.5 },
+  { id: 'bull', label: '🐂 Bull-Fan', close: 1.0, defense: 1.0, attack: 1.0, bull: 1.9, chaos: 0.7 },
+  { id: 'bauch', label: '🎲 Bauchgefühl', close: 1.0, defense: 1.0, attack: 1.1, bull: 1.1, chaos: 1.7 },
+];
+
 export class Cricket extends Base {
   static meta = {
     id: 'cricket', name: 'Cricket', icon: '🦗', cat: 'match', min: 1, max: 6,
@@ -372,19 +381,55 @@ export class Cricket extends Base {
   }
   totalMarks(i) { return CRICKET.reduce((a, x) => a + this.s.marks[i][x], 0); }
   score(i) { return this.s.pts[i]; }
+  /** Spielertyp der CPU (zufällig je Spiel, bleibt im Spielstand). */
+  cpuStyle(p) {
+    this.s.style = this.s.style || {};
+    if (!this.s.style[p]) this.s.style[p] = CRICKET_STYLES[Math.floor(Math.random() * CRICKET_STYLES.length)].id;
+    return CRICKET_STYLES.find((x) => x.id === this.s.style[p]);
+  }
+
+  /**
+   * Taktische Zielwahl: jede Zahl bekommt einen Nutzen – Schließen (mit Bonus für angefangene Zahlen),
+   * Verteidigen (Gegner punktet dort), Punkten (eigene Zahl zu, Gegner offen) – gewichtet nach Spielertyp,
+   * Spielstand und etwas Zufall. Wer an einer Zahl dran ist, bleibt meist dabei.
+   */
   cpuTarget() {
     const p = this.s.cur;
-    const m = this.s.marks[p];
-    // Erst eigene offene Felder (höchste zuerst), dann punkten, wo Gegner offen
-    for (const x of CRICKET) if (m[x] < 3) return x === 25 ? dart(25, 2) : dart(x, 3);
+    const me = this.s.marks[p];
+    const st = this.cpuStyle(p);
+    const opp = this.players.map((_, i) => i).filter((i) => i !== p);
+    const cut = this.cfg.variant === 'cutthroat', noscore = this.cfg.variant === 'noscore';
+    const oppPts = opp.map((i) => this.s.pts[i]);
+    // Vorsprung (positiv = ich führe); bei Cut-Throat sind wenig Punkte gut
+    const lead = !opp.length ? 0 : cut ? Math.min(...oppPts) - this.s.pts[p] : this.s.pts[p] - Math.max(...oppPts);
+    this.s.lastAim = this.s.lastAim || {};
+    let best = null, bestU = 0;
     for (const x of CRICKET) {
-      if (this.s.marks.some((om, i) => i !== p && om[x] < 3)) return x === 25 ? dart(25, 2) : dart(x, 3);
+      const v = x === 25 ? 25 : x;
+      const oppOpen = opp.some((i) => this.s.marks[i][x] < 3);
+      const oppClosed = opp.some((i) => this.s.marks[i][x] >= 3);
+      let u = 0;
+      if (me[x] < 3) {
+        u = v * (1 + me[x] * 0.7) * st.close;                       // schließen, angefangene Zahlen bevorzugt
+        if (oppClosed && !noscore) u += v * st.defense * (lead < 0 ? 1.6 : 1); // Gegner punktet hier → zumachen
+        if (!oppOpen && !oppClosed) u *= 1;
+      } else if (oppOpen && !noscore) {
+        u = v * st.attack * (lead < 0 ? 1.5 : lead > 50 ? 0.45 : 1);  // punkten
+      }
+      if (x === 25) u *= 0.5 * st.bull;                                // Bull ist schwer – meist erst spät
+      if (this.s.lastAim[p] === x && u > 0) u *= 1.4;                   // dranbleiben
+      u *= 1 + (Math.random() - 0.5) * st.chaos;                         // Bauchgefühl
+      if (u > bestU) { bestU = u; best = x; }
     }
-    return dart(20, 3);
+    if (best == null) best = CRICKET.find((x) => me[x] < 3) ?? 20;
+    this.s.lastAim[p] = best;
+    if (best === 25) return dart(25, (this.players[p].cpu || 5) >= 7 ? 2 : 1);
+    return dart(best, 3);
   }
   panel(i) {
     const mpr = this.s.st[i].darts ? ((this.s.mpr[i] / this.s.st[i].darts) * 3).toFixed(2) : '0.00';
-    return { main: this.cfg.variant === 'noscore' ? this.totalMarks(i) : this.s.pts[i], sub: `MPR ${mpr}`, cricket: this.s.marks[i] };
+    const style = this.players[i].cpu ? ` · ${this.cpuStyle(i).label}` : '';
+    return { main: this.cfg.variant === 'noscore' ? this.totalMarks(i) : this.s.pts[i], sub: `MPR ${mpr}${style}`, cricket: this.s.marks[i] };
   }
   hint() {
     const r = this.maxRounds ? ` · Runde ${Math.min(this.s.round, this.maxRounds)}/${this.maxRounds}` : ` · Runde ${this.s.round}`;
