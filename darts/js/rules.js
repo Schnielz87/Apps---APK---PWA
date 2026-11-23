@@ -8,7 +8,8 @@ export const RULES = {
   cricket: `Gespielt wird auf 15–20 und Bull. Ein Feld ist „geschlossen“, wenn es 3 Marks hat (Single = 1, Double = 2, Triple = 3).
 • Standard: Treffer auf eigene geschlossene Felder bringen Punkte, solange ein Gegner dort noch offen ist. Sieger: alles zu und mindestens gleich viele Punkte.
 • Cut-Throat: Punkte gehen an die Gegner – wenig Punkte sind gut.
-• Ohne Punkte: wer zuerst alles schließt, gewinnt.`,
+• Ohne Punkte: wer zuerst alles schließt, gewinnt.
+• Die CPU hat bei Cricket einen eigenen Spielertyp (Klassiker, Punktejäger, Verteidiger, Bull-Fan, Bauchgefühl) und spielt taktisch je nach Spielstand.`,
   atc: `Treffe nacheinander 1 bis 20 (und optional Bull). Gezählt werden die Darts – je weniger, desto besser.
 • Variante „nur Double/Triple“ für Fortgeschrittene, „springt weiter“: ein Double zählt zwei Felder.`,
   bobs27: `Start mit 27 Punkten. In jeder Runde 3 Darts auf ein Doppel (D1, D2 … D20, Bull).
